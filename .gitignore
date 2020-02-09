@@ -32,7 +32,7 @@ Makefile
 Makefile.in
 test_gpsparser
 test_gpsutils
-gps_mt3339_uart
+gps_mtk3339_uart
 config.status
 autom4te.cache
 gpsconfig.h

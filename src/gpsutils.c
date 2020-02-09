@@ -2,7 +2,7 @@
  * Copyright: 2015-2020. Stealthy Labs LLC. All Rights Reserved.
  * Original Date: 28th April 2015
  * Modified Date: 16th October 2019
- * Modified Software: libgps_mt3339
+ * Modified Software: libgps_mtk3339
  */
 #include <gpsutils.h>
 #ifdef HAVE_SYS_TIME_H

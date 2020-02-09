@@ -1,7 +1,7 @@
 /*
  * Copyright: 2015-2020. Stealthy Labs LLC. All Rights Reserved.
  * Date: 5th July 2019
- * Software: libgps_mt3339
+ * Software: libgps_mtk3339
  */
 #ifndef __GPSDATA_H__
 #define __GPSDATA_H__

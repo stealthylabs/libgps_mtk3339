@@ -1,7 +1,7 @@
 /*
  * Copyright: 2015-2019. Stealthy Labs LLC. All Rights Reserved.
  * Date: 5th July 2019
- * Software: libgps_mt3339
+ * Software: libgps_mtk3339
  */
 #ifndef _DEFAULT_SOURCE
     #define _DEFAULT_SOURCE

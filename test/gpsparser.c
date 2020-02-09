@@ -2,7 +2,7 @@
  * COPYRIGHT: 2015-2020 Stealthy Labs LLC
  * ORIGINAL DATE: 22nd April 2015
  * MODIFIED DATE: 16th Oct 2019
- * MODIFIED SOFTWARE: libgps_mt3339
+ * MODIFIED SOFTWARE: libgps_mtk3339
  */
 #include <gpsdata.h>
 #ifdef HAVE_FCNTL_H
