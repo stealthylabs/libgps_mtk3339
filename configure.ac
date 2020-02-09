@@ -78,6 +78,9 @@ fi
 AC_SUBST([AM_CFLAGS])
 AC_SUBST([AM_LDFLAGS])
 
+AC_PATH_PROG([RAGEL], [ragel], [/usr/bin/ragel])
+AS_IF([test "x$RAGEL" = "x"], [AC_MSG_ERROR([ragel])])
+
 PKG_CHECK_MODULES([CUNIT], [cunit], [AC_DEFINE([HAVE_CUNIT], [1], [Use CUnit])])
 AC_SUBST([CUNIT_CFLAGS])
 AC_SUBST([CUNIT_LIBS])

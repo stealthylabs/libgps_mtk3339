@@ -12,7 +12,7 @@ CLEANFILES=gpsparser.c
 
 #custom rule for ragel
 gpsparser.c: gpsparser.rl 
-	/usr/bin/ragel -C -I$(includedir) -o $@ $^
+	$(RAGEL) -C -I$(includedir) -o $@ $^
 
 bin_PROGRAMS=
 if HAVE_LIBUV
