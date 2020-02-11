@@ -9,8 +9,15 @@
 #include <gpsconfig.h>
 #include <gpsutils.h>
 #include <gpsdata.h>
-#ifdef HAVE_TIME_H
-    #include <time.h>
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
 #endif
 
 struct gpsdata_parser_t {
@@ -340,7 +347,7 @@ struct gpsdata_parser_t {
         if (!isnanf(fsm->_tmp_float)) {
             uint8_t num = ((uint32_t)(fsm->_tmp_float)) & 0xFF;
             fsm->_tmp_float = NAN;
-            if (num >= 0 && num <= 90) {
+            if (num <= 90) {
                 GPSUTILS_DEBUG("Elevation: %d\n", num);
                 fsm->_gsv_sats[fsm->_gsv_sat_idx].elevation = num;
                 fsm->_gsv_sats[fsm->_gsv_sat_idx].is_elevation_null = false;
@@ -359,7 +366,7 @@ struct gpsdata_parser_t {
         if (!isnanf(fsm->_tmp_float)) {
             uint16_t num = ((uint32_t)(fsm->_tmp_float)) & 0x0000FFFF;
             fsm->_tmp_float = NAN;
-            if (num >= 0 && num < 360) {
+            if (num < 360) {
                 GPSUTILS_DEBUG("Azimuth: %d\n", num);
                 fsm->_gsv_sats[fsm->_gsv_sat_idx].azimuth = num;
                 fsm->_gsv_sats[fsm->_gsv_sat_idx].is_azimuth_null = false;
@@ -378,7 +385,7 @@ struct gpsdata_parser_t {
         if (!isnanf(fsm->_tmp_float)) {
             uint8_t num = ((uint32_t)(fsm->_tmp_float)) & 0xFF;
             fsm->_tmp_float = NAN;
-            if (num >= 0 && num <= 99) {
+            if (num <= 99) {
                 GPSUTILS_DEBUG("SNR C/No: %d\n", num);
                 fsm->_gsv_sats[fsm->_gsv_sat_idx].snr_cno = num;
                 fsm->_gsv_sats[fsm->_gsv_sat_idx].is_snr_cno_null = false;
@@ -631,6 +638,7 @@ static void gpsdata_parser_internal_init(gpsdata_parser_t *fsm)
 
 static void gpsdata_parser_internal_fini(gpsdata_parser_t *fsm)
 {
+    if (fsm) {}
 }
 
 static void gpsdata_parser_internal_reset(gpsdata_parser_t *fsm)

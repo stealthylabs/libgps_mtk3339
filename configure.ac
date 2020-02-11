@@ -29,8 +29,11 @@ AC_DISABLE_STATIC
 # Checks for libraries.
 
 # Checks for header files.
-AC_CHECK_HEADERS([ errno.h features.h fcntl.h inttypes.h stdlib.h string.h limits.h])
-AC_CHECK_HEADERS([sys/time.h unistd.h stdio.h ctype.h termios.h math.h libgen.h time.h])
+AC_HEADER_SYS_WAIT
+AC_HEADER_TIME
+AC_HEADER_STDC
+AC_CHECK_HEADERS([ errno.h features.h fcntl.h inttypes.h limits.h])
+AC_CHECK_HEADERS([unistd.h stdio.h ctype.h termios.h math.h libgen.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
@@ -92,9 +95,10 @@ AS_IF([test "x$with_libuv" = "xyes"], [
                        use_libuv=true
                        AC_DEFINE([HAVE_UV_H], [1], [Define to 1 if uv.h is found])
                     ],
-                    [AC_CHECK_HEADERS([uv.h], [
-                       use_libuv=true
-                    ])]
+                    [
+                     AC_CHECK_HEADERS([uv.h], [use_libuv=true], [use_libuv=false])
+                     AC_CHECK_LIB([uv], [uv_run], [use_libuv=true], [use_libuv=false])
+                     ]
     )
 ])
 AM_CONDITIONAL([HAVE_LIBUV], [test "x$use_libuv" = "xtrue"])
@@ -107,9 +111,10 @@ AS_IF([test "x$with_libev" = "xyes"], [
                        use_libev=true
                        AC_DEFINE([HAVE_EV_H], [1], [Have libev.h])
                       ],
-                      [AC_CHECK_HEADERS([ev.h], [
-                       use_libev=true
-                          ])]
+                      [
+                       AC_CHECK_HEADERS([ev.h], [use_libev=true], [use_libev=false])
+                       AC_CHECK_LIB([ev], [ev_run], [use_libev=true], [use_libev=false])
+                      ]
                     )
 ])
 AM_CONDITIONAL([HAVE_LIBEV], [test "x$use_libev" = "xtrue"])
