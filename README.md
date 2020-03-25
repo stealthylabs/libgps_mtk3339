@@ -32,7 +32,7 @@ the GPS reading or adjustments using events and keeping the power consumption lo
 ```bash
 $ sudo apt-get -y install ragel libuv1-dev libev-dev
 $ ./autogen.sh
-$ ./configure --with-libuv --with-libev
+$ ./configure
 $ make
 $ make check
 ```

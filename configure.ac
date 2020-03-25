@@ -88,26 +88,36 @@ PKG_CHECK_MODULES([CUNIT], [cunit], [AC_DEFINE([HAVE_CUNIT], [1], [Use CUnit])])
 AC_SUBST([CUNIT_CFLAGS])
 AC_SUBST([CUNIT_LIBS])
 
-AC_ARG_WITH([libuv], AS_HELP_STRING([--with-libuv], [Build examples and applications that use libuv]))
+AC_ARG_WITH([libuv],
+              [AS_HELP_STRING([--without-libuv], [build examples without libuv support @<:@default=yes@:>@])],
+              [with_libuv=no],
+              [with_libuv=yes])
 AS_IF([test "x$with_libuv" = "xyes"], [
+    AC_MSG_CHECKING([if libuv is installed])
        #we have to force some constants because they do not get set
-    PKG_CHECK_MODULES([LIBUV], [libuv], [
-                       use_libuv=true
-                       AC_DEFINE([HAVE_UV_H], [1], [Define to 1 if uv.h is found])
+    PKG_CHECK_MODULES([LIBUV], [libuv >= 1.24],
+                    [
+                     use_libuv=true
+                     AC_DEFINE([HAVE_UV_H], [1], [Have uv.h])
                     ],
                     [
                      AC_CHECK_HEADERS([uv.h], [use_libuv=true], [use_libuv=false])
                      AC_CHECK_LIB([uv], [uv_run], [use_libuv=true], [use_libuv=false])
-                     ]
+                    ]
     )
 ])
 AM_CONDITIONAL([HAVE_LIBUV], [test "x$use_libuv" = "xtrue"])
 AC_SUBST([LIBUV_CFLAGS])
 AC_SUBST([LIBUV_LIBS])
 
-AC_ARG_WITH([libev], AS_HELP_STRING([--with-libev], [Build examples and applications that use libev]))
+AC_ARG_WITH([libev],
+              [AS_HELP_STRING([--without-libev], [build examples without libev support @<:@default=yes@:>@])],
+              [with_libev=no],
+              [with_libev=yes])
 AS_IF([test "x$with_libev" = "xyes"], [
-    PKG_CHECK_MODULES([LIBEV], [libev], [
+    AC_MSG_CHECKING([if libev is installed])
+    PKG_CHECK_MODULES([LIBEV], [libev], 
+                      [
                        use_libev=true
                        AC_DEFINE([HAVE_EV_H], [1], [Have libev.h])
                       ],
@@ -115,7 +125,7 @@ AS_IF([test "x$with_libev" = "xyes"], [
                        AC_CHECK_HEADERS([ev.h], [use_libev=true], [use_libev=false])
                        AC_CHECK_LIB([ev], [ev_run], [use_libev=true], [use_libev=false])
                       ]
-                    )
+    )
 ])
 AM_CONDITIONAL([HAVE_LIBEV], [test "x$use_libev" = "xtrue"])
 AC_SUBST([LIBEV_CFLAGS])
