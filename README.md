@@ -30,6 +30,7 @@ the GPS reading or adjustments using events and keeping the power consumption lo
 ## BUILD and TEST
 
 ```bash
+$ git submodule update
 $ sudo apt-get -y install ragel libuv1-dev libev-dev
 $ ./autogen.sh
 $ ./configure
