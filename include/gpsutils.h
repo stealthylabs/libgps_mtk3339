@@ -44,6 +44,16 @@
 #ifdef HAVE_MATH_H
     #include <math.h>
 #endif
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
 
 #undef EXTERN_C_BEGIN
 #undef EXTERN_C_END
@@ -113,6 +123,7 @@ typedef struct {
 
 void gpsutils_timer_start(gpsutils_timer_t *tt);
 void gpsutils_timer_stop(gpsutils_timer_t *tt);
+int gpsutils_get_timeval(const struct tm *tm1, uint32_t millisecs, struct timeval *tv);
 void gpsutils_hex_dump(const uint8_t *in, size_t inlen, FILE *fp);
 uint8_t gpsutils_hex_parse(const char a);
 void gpsutils_string_toupper(char *s);

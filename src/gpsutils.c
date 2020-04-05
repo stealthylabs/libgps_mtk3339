@@ -5,18 +5,43 @@
  * Modified Software: libgps_mtk3339
  */
 #include <gpsutils.h>
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
-#endif
 
 volatile int gpsutils_loglevel = GPSUTILS_LOGLEVEL_INFO;
+
+static time_t gpsutils_timegm(struct tm *_tm)
+{
+#ifdef HAVE_TIMEGM
+    return timegm(_tm);
+#else
+    char *old_tz = getenv("TZ");
+    setenv("TZ", "UTC", 1);
+    time_t val = mktime(_tm);
+    if (old_tz) {
+        setenv("TZ", old_tz, 1);
+    } else {
+        unsetenv("TZ");
+    }
+    return val;
+#endif
+}
+
+int gpsutils_get_timeval(const struct tm *tm1, uint32_t millisecs, struct timeval *tv)
+{
+    if (tm1 && tv) {
+        // the mktime/timegm functions may modify the tm structure so we copy it
+        struct tm tm2 = { 0 };
+        memcpy(&tm2, tm1, sizeof(struct tm));
+        tv->tv_sec = gpsutils_timegm(&tm2);
+        if (millisecs < 1000) {
+            tv->tv_usec = millisecs * 1000;
+        } else {
+            tv->tv_sec += millisecs / 1000;
+            tv->tv_usec = (millisecs % 1000) * 1000;
+        }
+        return 0;
+    }
+    return -1;
+}
 
 void gpsutils_timer_start(gpsutils_timer_t *tt)
 {

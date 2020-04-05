@@ -10,6 +10,31 @@
     #include <CUnit/Basic.h>
 #endif
 
+void test_timeval()
+{
+    struct tm tm0 = { 0 };
+    // 5th April 2020 04:35:28am UTC
+    tm0.tm_mday = 5;
+    tm0.tm_mon = 3; // april
+    tm0.tm_year = 2020 - 1900;
+    tm0.tm_hour = 4;
+    tm0.tm_min = 35;
+    tm0.tm_sec = 28;
+    tm0.tm_wday = tm0.tm_yday = tm0.tm_isdst = 0;
+    struct timeval tv = { 0 };
+    gpsutils_get_timeval(&tm0, 0, &tv);
+    CU_ASSERT_EQUAL(tv.tv_sec, 1586061328);
+    gpsutils_get_timeval(&tm0, 345, &tv);
+    CU_ASSERT_EQUAL(tv.tv_sec, 1586061328);
+    CU_ASSERT_EQUAL(tv.tv_usec, 345 * 1000);
+    gpsutils_get_timeval(&tm0, 1300, &tv);
+    CU_ASSERT_EQUAL(tv.tv_sec, 1586061329);
+    CU_ASSERT_EQUAL(tv.tv_usec, 300 * 1000);
+    gpsutils_get_timeval(&tm0, 1000, &tv);
+    CU_ASSERT_EQUAL(tv.tv_sec, 1586061329);
+    CU_ASSERT_EQUAL(tv.tv_usec, 0);
+}
+
 void test_hex_parse()
 {
     const char buf[16] = {
@@ -81,6 +106,8 @@ int main(int argc, char **argv)
                     CU_get_error_msg());
             break;
         }
+        if (!CU_ADD_TEST(suite, test_timeval))
+            break;
         if (!CU_ADD_TEST(suite, test_hex_parse))
             break;
         if (!CU_ADD_TEST(suite, test_str_toupper))

@@ -54,6 +54,7 @@ AC_C_INLINE
 # Checks for library functions.
 AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([memset strdup memcpy calloc ioctl])
+AC_CHECK_FUNCS_ONCE([timegm])
 
 ## debug test
 AC_MSG_CHECKING([whether to build with debug information])
