@@ -19,7 +19,6 @@
 #  include <time.h>
 # endif
 #endif
-
 struct gpsdata_parser_t {
     // variables used by Ragel Section 5.1
     int cs; // current state variable
@@ -458,6 +457,7 @@ struct gpsdata_parser_t {
     range0_99 = ([0-9]{1,2});
     range0_359 = ([0-2]?[0-9]{2}) | ([3][0-5][0-9]);
 
+    ## time, position and fix type data
     gpgga = 'GPGGA' @xn_msgid_gpgga COMMA .
         UTCTime COMMA .
         Latitude %xn_latitude COMMA .
@@ -470,6 +470,8 @@ struct gpsdata_parser_t {
         number %xn_altitude COMMA 'M' COMMA .
         number %xn_geoidal COMMA 'M' COMMA number? COMMA;
 
+    ## GPS receiver operating mode, active satellites used in the position
+    ## solution and DOP values
     gpgsa = 'GPGSA' @xn_msgid_gpgsa COMMA .
         [MA] @xn_mode1 COMMA [1-3] @xn_mode2 COMMA .
         (optional_integer %xn_satellites_used COMMA){12} .
@@ -477,6 +479,8 @@ struct gpsdata_parser_t {
         number %xn_hdop COMMA .
         number %xn_vdop COMMA?; #no comma here as per datasheet, but let's handle it
 
+    ## the number of GPS satellites in view satellite ID numbers, elevation,
+    ## azimuth, and SNR values
     gpgsv = 'GPGSV' @xn_msgid_gpgsv COMMA .
         [1-3] @xn_gpgsv_msgcount COMMA .
         [1-3] @xn_gpgsv_msgindex COMMA .
@@ -487,6 +491,7 @@ struct gpsdata_parser_t {
          COMMA optional_integer %xn_snr_cno ) {1,4} .
         COMMA ?; #optional comma in case needed
 
+    ## time, date, position, course and speed data. recommended minimum navigation information
     gprmc = 'GPRMC' @xn_msgid_gprmc COMMA .
         UTCTime COMMA .
         [AV] @xn_status_valid COMMA .
@@ -501,6 +506,7 @@ struct gpsdata_parser_t {
         ([EW] | zlen) @xn_magvariation_ew COMMA . # this is for magnetic variation
         [ADE] @xn_mode_common COMMA ?; #optional comma in case needed
 
+    ## course and speed information relative to the ground
     gpvtg = 'GPVTG' @xn_msgid_gpvtg COMMA .
         number %xn_ground_course COMMA 'T' COMMA .
         optional_number %xn_magnetic_heading COMMA 'M' COMMA .
@@ -508,16 +514,18 @@ struct gpsdata_parser_t {
         number %xn_speed_kmph COMMA 'K' COMMA .
         [ADE] @xn_mode_common COMMA ?; #optional comma in case needed
 
+    ## status of antenna
     pgtop = 'PGTOP' @xn_msgid_pgtop COMMA .
         integer @xn_pgtop_fntype COMMA .
         [1-3] @xn_pgtop_value COMMA ?; #optional comma in case needed
 
-     pmtk = 'PMTK' @xn_msgid_pmtk '103'; #for cold start
+    ## cold start: don't use time, position, almanacs & ephemeris data at re-start 
+    pmtk = 'PMTK' @xn_msgid_pmtk '103'; #for cold start
 
-     message = '$' >xn_clean_state .
+    message = '$' >xn_clean_state .
         (gpgga | gpgsa | gpgsv | gprmc | gpvtg | pgtop | pmtk) >xn_checksum_reset $xn_checksum_calculate .
         '*' xdigit{2} $xn_checksum_xdigit %xn_checksum_verify;
-     main := (message | space | empty | 0x00)* ;# allow nulls
+    main := (message | space | empty | 0x00)* ;# allow nulls
 
 }%%
 

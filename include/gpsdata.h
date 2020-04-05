@@ -6,7 +6,9 @@
 #ifndef __GPSDATA_H__
 #define __GPSDATA_H__
 
+#include <gpsconfig.h>
 #include <gpsutils.h>
+#include <gps_utlist.h>
 
 EXTERN_C_BEGIN
 
@@ -69,10 +71,21 @@ typedef struct {
     float minutes;
 } gpsdata_latlon_t;
 
-typedef struct {
-    gpsdata_msgid_t msgid;
+typedef struct gpsdata_data {
+    gpsdata_msgid_t msgid;      // the message ID this update is from
     gpsdata_latlon_t latitude;
     gpsdata_latlon_t longitude;
+    // if a full timestamp is available this bool will be set to true
+    bool is_valid_timestamp;
+    struct timeval timestamp;
+    // if not available all float values will be NAN
+    float speed_kmph;
+    float speed_knots;
+    float coarse_degrees;
+    float heading_degrees;
+    /* make this a double-ended linked list using utlist */
+    struct gpsdata_data *prev;
+    struct gpsdata_data *next;    
 } gpsdata_data_t;
 
 typedef struct gpsdata_parser_t gpsdata_parser_t;

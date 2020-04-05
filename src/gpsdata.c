@@ -3,7 +3,6 @@
  * Date: 5th July 2019
  * Software: libgps_mtk3339
  */
-#include <gpsconfig.h>
 #include <gpsdata.h>
 
 const char *gpsdata_msgid_tostring(gpsdata_msgid_t m)
