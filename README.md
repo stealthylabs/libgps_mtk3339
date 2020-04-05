@@ -30,6 +30,7 @@ the GPS reading or adjustments using events and keeping the power consumption lo
 ## BUILD and TEST
 
 ```bash
+$ git submodule init
 $ git submodule update
 $ sudo apt-get -y install ragel libuv1-dev libev-dev
 $ ./autogen.sh
@@ -43,6 +44,10 @@ want to run `configure` with the `--prefix` option.
 
 If you want to build in debug mode, you want to run `configure` with the
 `--enable-debug` option.
+
+If you are a developer and want to check if the code compiles, links, installs and runs
+after you run `make install` you can run `./checkinstaller.sh` to compile,
+install and test.
 
 
 ## COPYRIGHT

@@ -1,5 +1,6 @@
 #!/bin/bash
 PREFIX=/tmp/test_install
+./autogen.sh || exit 1
 ./configure --prefix=$PREFIX || exit 1
 make install PREFIX=$PREFIX || exit 1
 
