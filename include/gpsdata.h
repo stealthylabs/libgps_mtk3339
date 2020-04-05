@@ -83,7 +83,8 @@ typedef struct gpsdata_data {
     float speed_knots;
     float coarse_degrees;
     float heading_degrees;
-    /* make this a double-ended linked list using utlist */
+    /* make this a double-ended linked list using utlist.h or gps_utlist.h in
+     * our case to make sure we get expected behavior */
     struct gpsdata_data *prev;
     struct gpsdata_data *next;    
 } gpsdata_data_t;
