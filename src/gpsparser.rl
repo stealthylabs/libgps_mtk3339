@@ -31,7 +31,19 @@ struct gpsdata_parser_t {
     int (*execute)(struct gpsdata_parser_t *, const char *, size_t);
     void (*clean_state)(struct gpsdata_parser_t *);
     void (*dump_state)(const struct gpsdata_parser_t *, FILE *);
+    int (*save)(struct gpsdata_parser_t *);
 
+    /* a linked-list of items that can be loaded from a single buffer
+    * highly unlikely that the code will hold more than 3-4 messages in this
+    * list but better to use a list than an array
+    * the items in this list are added in by the save function
+    */
+    gpsdata_data_t *items;
+    // used to store the most recent date from the GPRMC message
+    // since it is like a delta feed and we may not have that info
+    struct tm rmc_tm;
+
+    /* internal portion of the FSM to track each message */
     struct tm _tm;
     uint32_t _tm_msec;
     gpsdata_latlon_t _lll;
@@ -40,7 +52,7 @@ struct gpsdata_parser_t {
     uint32_t _calc_checksum;
     uint32_t _checksum;
 
-    gpsdata_msgid_t msgid;
+    gpsdata_msgid_t _msgid;
     gpsdata_latlon_t _lat;
     gpsdata_latlon_t _lon;
     gpsdata_posfix_t _posfix;
@@ -69,7 +81,6 @@ struct gpsdata_parser_t {
     float _magvar_degrees; // magnetic variation
     gpsdata_direction_t _magvar_direction; // magnetic variation direction
     
-    
     struct gpsdata_parser_gsv_t {
         uint8_t satellite_id; // values 1-32
         uint8_t elevation; // values 0-90
@@ -91,13 +102,13 @@ struct gpsdata_parser_t {
     variable eof fsm->eof;
 
     action xn_clean_state { if (fsm->clean_state) fsm->clean_state(fsm); }
-    action xn_msgid_gpgga { fsm->msgid = GPSDATA_MSGID_GPGGA; }
-    action xn_msgid_gpgsa { fsm->msgid = GPSDATA_MSGID_GPGSA; }
-    action xn_msgid_gpgsv { fsm->msgid = GPSDATA_MSGID_GPGSV; }
-    action xn_msgid_gprmc { fsm->msgid = GPSDATA_MSGID_GPRMC; }
-    action xn_msgid_gpvtg { fsm->msgid = GPSDATA_MSGID_GPVTG; }
-    action xn_msgid_pgtop { fsm->msgid = GPSDATA_MSGID_PGTOP; }
-    action xn_msgid_pmtk  { fsm->msgid = GPSDATA_MSGID_PMTK;  }
+    action xn_msgid_gpgga { fsm->_msgid = GPSDATA_MSGID_GPGGA; }
+    action xn_msgid_gpgsa { fsm->_msgid = GPSDATA_MSGID_GPGSA; }
+    action xn_msgid_gpgsv { fsm->_msgid = GPSDATA_MSGID_GPGSV; }
+    action xn_msgid_gprmc { fsm->_msgid = GPSDATA_MSGID_GPRMC; }
+    action xn_msgid_gpvtg { fsm->_msgid = GPSDATA_MSGID_GPVTG; }
+    action xn_msgid_pgtop { fsm->_msgid = GPSDATA_MSGID_PGTOP; }
+    action xn_msgid_pmtk  { fsm->_msgid = GPSDATA_MSGID_PMTK;  }
 
     action xn_tm_Z_dd { fsm->_tm.tm_mday  = 0; }
     action xn_tm_0_dd { fsm->_tm.tm_mday += (fc - '0'); }
@@ -218,6 +229,7 @@ struct gpsdata_parser_t {
             fsm->_rmc_valid = true;
         } else {
             GPSUTILS_ERROR("GPRMC Status can be either 'A' or 'V', not '%c'\n", fc); 
+            fsm->_rmc_valid = false;
         }
     } 
   
@@ -417,6 +429,12 @@ struct gpsdata_parser_t {
                     fsm->_checksum, fsm->_calc_checksum);
         }
     }
+    action xn_message_save {
+        GPSUTILS_DEBUG("message save called for msgid: %s\n", gpsdata_msgid_tostring(fsm->_msgid));
+        if (fsm->save) {
+            fsm->save(fsm);
+        }
+    }
 
     COMMA = ',';
     DOT = '.';
@@ -525,7 +543,7 @@ struct gpsdata_parser_t {
     message = '$' >xn_clean_state .
         (gpgga | gpgsa | gpgsv | gprmc | gpvtg | pgtop | pmtk) >xn_checksum_reset $xn_checksum_calculate .
         '*' xdigit{2} $xn_checksum_xdigit %xn_checksum_verify;
-    main := (message | space | empty | 0x00)* ;# allow nulls
+    main := (message %xn_message_save | space | empty | 0x00)* ;# allow nulls
 
 }%%
 
@@ -579,7 +597,7 @@ static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE
             fsm->_tm.tm_year, fsm->_tm.tm_mon, fsm->_tm.tm_mday);
         fprintf(fp, "_tm.tm_hour: %d _tm.tm_min: %d _tm.tm_sec: %d _tm_msec: %d\n",
             fsm->_tm.tm_hour, fsm->_tm.tm_min, fsm->_tm.tm_sec, fsm->_tm_msec);
-        fprintf(fp, "msgid: %s\n", gpsdata_msgid_tostring(fsm->msgid));
+        fprintf(fp, "msgid: %s\n", gpsdata_msgid_tostring(fsm->_msgid));
         fprintf(fp, "_lat: %d' %0.04f\" %s\n", fsm->_lat.degrees, fsm->_lat.minutes,
             gpsdata_direction_tostring(fsm->_lat.direction));
         fprintf(fp, "_lon: %d' %0.04f\" %s\n", fsm->_lon.degrees, fsm->_lon.minutes,
@@ -632,12 +650,147 @@ static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE
     }
 }
 
+static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
+{
+    int rc = 0;
+    if (!fsm) {
+        GPSUTILS_ERROR("FSM's save function called but fsm is NULL. Inconsistent state\n");
+        return -1;
+    }
+    gpsdata_data_t *item = NULL;
+    do {
+        GPSUTILS_DEBUG("Trying to save current message to list of items\n");
+        // saves a single message to the items list
+        item = calloc(1, sizeof(*item));
+        if (!item) {
+            GPSUTILS_ERROR_NOMEM(sizeof(*item));
+            rc = -1;
+            break;
+        }
+        gpsdata_initialize(item);
+        // different messages have different handling
+        const char *msgid_str = gpsdata_msgid_tostring(fsm->_msgid);
+        item->msgid = fsm->_msgid;
+        switch (fsm->_msgid) {
+        case GPSDATA_MSGID_GPGGA:
+            memcpy(&(item->latitude), &(fsm->_lat), sizeof(fsm->_lat));
+            memcpy(&(item->longitude), &(fsm->_lon), sizeof(fsm->_lon));
+            // a valid rmc_tm
+            if (fsm->rmc_tm.tm_year > 0) {
+                fsm->_tm.tm_year = fsm->rmc_tm.tm_year;
+                fsm->_tm.tm_mon = fsm->rmc_tm.tm_mon;
+                fsm->_tm.tm_mday = fsm->rmc_tm.tm_mday;
+                if (gpsutils_get_timeval(&(fsm->_tm), fsm->_tm_msec,
+                    &(item->timestamp)) < 0) {
+                    GPSUTILS_WARN("Message %s: invalid timestamp conversion\n",
+                        msgid_str);
+                    item->is_valid_timestamp = false;
+                } else {
+                    item->is_valid_timestamp = true;
+                }
+            } else {
+                // we still convert just in case we have knowledge of the date
+                // external to this library
+                gpsutils_get_timeval(&(fsm->_tm), fsm->_tm_msec,
+                    &(item->timestamp));
+                item->is_valid_timestamp = false;
+                GPSUTILS_WARN("RMC date is unavailable, so timestamp is considered invalid for message %s\n", msgid_str);
+            }
+            item->posfix = fsm->_posfix;
+            item->num_satellites = fsm->_num_sats;
+            item->altitude_meters = fsm->_altitude;
+            break;
+        case GPSDATA_MSGID_GPGSA:
+            GPSUTILS_DEBUG("Message %s: ignoring until needed in the future\n",
+                msgid_str);
+            rc = 1; //ignore
+            break;
+        case GPSDATA_MSGID_GPGSV:
+            GPSUTILS_DEBUG("Message %s: ignoring until needed in the future\n",
+                msgid_str);
+            rc = 1; //ignore
+            break;
+        case GPSDATA_MSGID_GPRMC:
+            memcpy(&(item->latitude), &(fsm->_lat), sizeof(fsm->_lat));
+            memcpy(&(item->longitude), &(fsm->_lon), sizeof(fsm->_lon));
+            item->mode = fsm->mode_common;
+            if (fsm->_rmc_valid) {
+                item->speed_knots = fsm->_speed_knots;
+                item->course_degrees = fsm->_course_degrees;
+                if (gpsutils_get_timeval(&(fsm->_tm), fsm->_tm_msec,
+                    &(item->timestamp)) < 0) {
+                    GPSUTILS_WARN("Message %s: invalid timestamp conversion\n",
+                        msgid_str);
+                    item->is_valid_timestamp = false;
+                } else {
+                    item->is_valid_timestamp = true;
+                    // update this delta timestamp storage
+                    memcpy(&(fsm->rmc_tm), &(fsm->_tm), sizeof(fsm->_tm));
+                }
+            } else {
+                GPSUTILS_WARN("%s message is not valid. Ignoring\n", msgid_str);
+                rc = 1;//ignore
+            }
+            break;
+        case GPSDATA_MSGID_GPVTG:
+            item->mode = fsm->mode_common;
+            item->course_degrees = fsm->_course_degrees;
+            item->heading_degrees = fsm->_heading_degrees;
+            item->speed_knots = fsm->_speed_knots;
+            item->speed_kmph = fsm->_speed_kmph;
+            break;
+        case GPSDATA_MSGID_PGTOP:
+            GPSUTILS_DEBUG("Received message ID %s. Antenna state: %d CommandID: %d\n",
+                msgid_str, fsm->_pgtop_value, fsm->_pgtop_fntype);
+            if (fsm->_pgtop_fntype == 11) {
+                item->msgid = fsm->_msgid;
+                switch (fsm->_pgtop_fntype) {
+                case 1: item->antenna_status = GPSDATA_ANTENNA_SHORTED; break;
+                case 2: item->antenna_status = GPSDATA_ANTENNA_INTERNAL; break;
+                case 3: item->antenna_status = GPSDATA_ANTENNA_ACTIVE; break;
+                default:
+                    item->antenna_status = GPSDATA_ANTENNA_UNSET;
+                    GPSUTILS_WARN("Message %s: Antenna status cannot be %d. Ignoring\n",
+                                msgid_str, fsm->_pgtop_fntype);
+                    rc = 1; //ignore
+                    break;
+                }
+            } else {
+                GPSUTILS_WARN("Message %s: ignoring since %d is unsupported command ID\n",
+                    msgid_str, fsm->_pgtop_fntype);
+                rc = 1;//ignore
+            }
+            break;
+        case GPSDATA_MSGID_PMTK:
+            GPSUTILS_DEBUG("Received message ID %s. Ignoring\n", msgid_str);
+            rc = 1;//ignore
+            break;
+        default:
+            item->msgid = GPSDATA_MSGID_UNSET;
+            GPSUTILS_WARN("Unsupported message ID parsed: %d(%s)\n",
+                    fsm->_msgid, msgid_str);
+            rc = -1;
+            break;
+        }
+    } while (0);
+    // on failure or ignore message free the item
+    if (rc < 0 || rc > 0) {
+        GPSUTILS_FREE(item);
+    } else {
+        // add to items list
+        LL_APPEND(fsm->items, item);
+    }
+    return rc;
+}
+
 static void gpsdata_parser_internal_init(gpsdata_parser_t *fsm)
 {
     //initialize
     if (fsm) {
         fsm->p = fsm->pe = fsm->eof = NULL;
         fsm->cs = 0;
+        fsm->items = NULL;
+        memset(&(fsm->rmc_tm), 0, sizeof(fsm->rmc_tm));
         if (fsm->clean_state)
             fsm->clean_state(fsm);
         %% write init;
@@ -646,7 +799,9 @@ static void gpsdata_parser_internal_init(gpsdata_parser_t *fsm)
 
 static void gpsdata_parser_internal_fini(gpsdata_parser_t *fsm)
 {
-    if (fsm) {}
+    if (fsm && fsm->items) {
+        gpsdata_list_free(&(fsm->items));
+    }
 }
 
 static void gpsdata_parser_internal_reset(gpsdata_parser_t *fsm)
@@ -655,6 +810,11 @@ static void gpsdata_parser_internal_reset(gpsdata_parser_t *fsm)
         if (fsm->cs == %%{ write error; }%%) {
             fsm->cs = %%{write start; }%%;
         }
+        if (fsm->items) {
+            gpsdata_list_free(&(fsm->items));
+            fsm->items = NULL;
+        }
+        memset(&(fsm->rmc_tm), 0, sizeof(fsm->rmc_tm));
     }
 }
 
@@ -688,6 +848,7 @@ gpsdata_parser_t *gpsdata_parser_create()
         fsm->execute = gpsdata_parser_internal_execute;
         fsm->clean_state = gpsdata_parser_internal_clean_state;
         fsm->dump_state = gpsdata_parser_internal_dump_state;
+        fsm->save = gpsdata_parser_internal_save;
         if (fsm->init) {
             fsm->init(fsm);
         }
@@ -708,8 +869,7 @@ void gpsdata_parser_free(gpsdata_parser_t *fsm)
     if (fsm) {
         if (fsm->fini)
             fsm->fini(fsm);
-        free(fsm);
-        fsm = NULL;
+        GPSUTILS_FREE(fsm);
     }
 }
 
@@ -725,7 +885,7 @@ void gpsdata_parser_reset(gpsdata_parser_t *fsm)
 
 int gpsdata_parser_parse(gpsdata_parser_t *fsm,
             const char *data, size_t len, 
-            gpsdata_data_t **outp, size_t *olen)
+            gpsdata_data_t **outp, size_t *onum)
 {
     if (!fsm || !data || len == 0) {
         GPSUTILS_DEBUG("Invalid input arguments\n");
@@ -742,7 +902,26 @@ int gpsdata_parser_parse(gpsdata_parser_t *fsm,
             fsm->dump_state(fsm, stdout);
         return rc;
     }
-    //TODO: add retrieved data to outp
+    if (outp) {
+        if (fsm->items) {
+            size_t count = 0;
+            gpsdata_data_t *el = NULL;
+            LL_COUNT(fsm->items, el, count);
+            if (onum)
+                *onum = count;
+            GPSUTILS_DEBUG("adding %zu message items to the output list\n", count);
+            LL_CONCAT(*outp, fsm->items);
+            fsm->items = NULL;
+        } else {
+            GPSUTILS_DEBUG("No message items were extracted\n");
+        }
+    } else {
+        GPSUTILS_DEBUG("No list outp given, cleaning up parsed message items\n");
+        gpsdata_list_free(&(fsm->items));
+        fsm->items = NULL;
+        if (onum)
+            *onum = 0;
+    }
     return rc;
 }
 

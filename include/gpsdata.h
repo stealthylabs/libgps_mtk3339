@@ -13,6 +13,7 @@
 EXTERN_C_BEGIN
 
 typedef enum {
+    GPSDATA_MSGID_UNSET,
     GPSDATA_MSGID_GPGGA,
     GPSDATA_MSGID_GPGSA,
     GPSDATA_MSGID_GPGSV,
@@ -57,9 +58,10 @@ typedef enum {
 const char *gpsdata_mode_tostring(gpsdata_mode_t);
 
 typedef enum {
-    GPSDATA_ANTENNA_SHORTED,
-    GPSDATA_ANTENNA_INTERNAL,
-    GPSDATA_ANTENNA_ACTIVE
+    GPSDATA_ANTENNA_UNSET = 0,
+    GPSDATA_ANTENNA_SHORTED = 1,
+    GPSDATA_ANTENNA_INTERNAL = 2,
+    GPSDATA_ANTENNA_ACTIVE = 3
 } gpsdata_antenna_t;
 
 const char *gpsdata_antenna_tostring(gpsdata_antenna_t);
@@ -78,16 +80,25 @@ typedef struct gpsdata_data {
     // if a full timestamp is available this bool will be set to true
     bool is_valid_timestamp;
     struct timeval timestamp;
+    gpsdata_mode_t mode; // set for GPRMC/GPVTG
+    gpsdata_posfix_t posfix;
+    uint32_t num_satellites;
     // if not available all float values will be NAN
+    float altitude_meters;
     float speed_kmph;
     float speed_knots;
-    float coarse_degrees;
+    float course_degrees;
     float heading_degrees;
-    /* make this a double-ended linked list using utlist.h or gps_utlist.h in
+    // antenna status
+    gpsdata_antenna_t antenna_status;
+    /* make this a linked list using utlist.h or gps_utlist.h in
      * our case to make sure we get expected behavior */
-    struct gpsdata_data *prev;
     struct gpsdata_data *next;    
 } gpsdata_data_t;
+
+void gpsdata_list_free(gpsdata_data_t **listp);
+void gpsdata_initialize(gpsdata_data_t *);
+void gpsdata_dump(const gpsdata_data_t *, FILE *);
 
 typedef struct gpsdata_parser_t gpsdata_parser_t;
 
@@ -96,9 +107,12 @@ void gpsdata_parser_free(gpsdata_parser_t *);
 void gpsdata_parser_reset(gpsdata_parser_t *);
 void gpsdata_parser_dump_state(const gpsdata_parser_t *, FILE *);
 
-int gpsdata_parser_parse(gpsdata_parser_t *,
-            const char *, size_t, 
-            gpsdata_data_t **, size_t *);
+int gpsdata_parser_parse(gpsdata_parser_t *ptr,
+            const char *buf, size_t buflen,
+            gpsdata_data_t **listp, // the link list pointer to which to append the results to
+            size_t *outnum // the number of elements added to the list in this call
+            );
+
 
 EXTERN_C_END
 #endif /* __GPSDATA_H__ */
