@@ -75,7 +75,11 @@ enum {
 };
 extern volatile int gpsutils_loglevel; /* defined in utils.c */
 
+// define the GPSUTILS_LOG_PTR to your own FILE *pointer variable before using
+// if you want to change
+#ifndef GPSUTILS_LOG_PTR
 #define GPSUTILS_LOG_PTR stderr
+#endif
 #define GPSUTILS_STRINGIFY(A) #A
 #define GPSUTILS_STRINGIFY2(A,B) A ## B
 #define GPSUTILS_LOGLEVEL_STRINGIFY(A) GPSUTILS_STRINGIFY2(GPSUTILS_LOGLEVEL_,A)

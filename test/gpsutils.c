@@ -84,8 +84,7 @@ void test_hex_dump()
         }
     }
     CU_ASSERT_STRING_EQUAL(buf, expected);
-    free(buf);
-    buf = NULL;
+    GPSUTILS_FREE(buf);
 }
 
 int main(int argc, char **argv)
