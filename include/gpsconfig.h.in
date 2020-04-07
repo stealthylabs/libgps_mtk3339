@@ -1,8 +1,5 @@
 /* include/gpsconfig.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Debug Mode */
-#undef DEBUG
-
 /* Define to 1 if you have the `calloc' function. */
 #undef HAVE_CALLOC
 
@@ -147,6 +144,9 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Debug Mode */
+#undef _DEBUG
 
 /* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
    <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the

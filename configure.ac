@@ -66,7 +66,7 @@ AC_MSG_RESULT([$debugit])
 AM_CFLAGS="-Wall -Wextra -Wno-uninitialized -fPIC -pedantic -posix -std=c11 -D_DEFAULT_SOURCE -D_REENTRANT -Wno-unused-const-variable"
 
 if test x"$debugit" = x"yes"; then
-    AC_DEFINE([DEBUG],[],[Debug Mode])
+    AC_DEFINE([_DEBUG],[],[Debug Mode])
     dnl Remove all optimization flags from CFLAGS
     changequote({,})
     CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9s]*//g' | sed -e 's/-g[0-9]*//g'`
@@ -75,6 +75,7 @@ if test x"$debugit" = x"yes"; then
 
     AM_CFLAGS="$AM_CFLAGS -g -Werror -O0"
 else
+    AC_DEFINE([NDEBUG],[],[No Debug Mode])
     AC_DEFINE([NDEBUG],[],[No Debug Mode])
     AM_CFLAGS="$AM_CFLAGS"
 fi
