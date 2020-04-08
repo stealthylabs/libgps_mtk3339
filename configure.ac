@@ -105,6 +105,8 @@ AS_IF([test "x$with_libuv" = "xyes"], [
                     [
                      AC_CHECK_HEADERS([uv.h], [use_libuv=true], [use_libuv=false])
                      AC_CHECK_LIB([uv], [uv_run], [use_libuv=true], [use_libuv=false])
+                     LIBUV_LIBS="-luv"
+                     echo "Setting LIBUV_LIBS to $LIBUV_LIBS"
                     ]
     )
 ])
@@ -126,6 +128,8 @@ AS_IF([test "x$with_libev" = "xyes"], [
                       [
                        AC_CHECK_HEADERS([ev.h], [use_libev=true], [use_libev=false])
                        AC_CHECK_LIB([ev], [ev_run], [use_libev=true], [use_libev=false])
+                       LIBEV_LIBS="-lev"
+                       echo "Setting LIBEV_LIBS to $LIBEV_LIBS"
                       ]
     )
 ])

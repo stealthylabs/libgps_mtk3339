@@ -24,10 +24,17 @@ gpsparser.c: gpsparser.rl
 gps_utlist.h: $(thirdparty_includedir)/utlist.h
 	/bin/cp -v $^ $@
 
-bin_PROGRAMS=
+noinst_PROGRAMS=
 if HAVE_LIBUV
-bin_PROGRAMS+=gps_mtk3339_uart
+noinst_PROGRAMS+=libuv_uart_gps
+libuv_uart_gps_SOURCES=libuv_uart.c
+libuv_uart_gps_CFLAGS=$(LIBUV_CFLAGS)
+libuv_uart_gps_LDADD=libgps_mtk3339.la $(LIBUV_LIBS)
 endif
-gps_mtk3339_uart_SOURCES=gpsuart.c
-gps_mtk3339_uart_CFLAGS=$(LIBUV_CFLAGS)
-gps_mtk3339_uart_LDADD=libgps_mtk3339.la $(LIBUV_LIBS)
+
+if HAVE_LIBEV
+noinst_PROGRAMS+=libev_uart_gps
+libev_uart_gps_SOURCES=libev_uart.c
+libev_uart_gps_CFLAGS=$(LIBEV_CFLAGS)
+libev_uart_gps_LDADD=libgps_mtk3339.la $(LIBEV_LIBS)
+endif
