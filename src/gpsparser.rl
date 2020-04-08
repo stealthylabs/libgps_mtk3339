@@ -427,6 +427,8 @@ struct gpsdata_parser_t {
         if (fsm->_calc_checksum != fsm->_checksum) {
             GPSUTILS_ERROR("Checksum does not match. Expected: %x Calculated: %x\n",
                     fsm->_checksum, fsm->_calc_checksum);
+        } else {
+            GPSUTILS_DEBUG("checksum: %x verified\n", fsm->_checksum);
         }
     }
     action xn_message_save {
@@ -744,14 +746,14 @@ static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
                 msgid_str, fsm->_pgtop_value, fsm->_pgtop_fntype);
             if (fsm->_pgtop_fntype == 11) {
                 item->msgid = fsm->_msgid;
-                switch (fsm->_pgtop_fntype) {
+                switch (fsm->_pgtop_value) {
                 case 1: item->antenna_status = GPSDATA_ANTENNA_SHORTED; break;
                 case 2: item->antenna_status = GPSDATA_ANTENNA_INTERNAL; break;
                 case 3: item->antenna_status = GPSDATA_ANTENNA_ACTIVE; break;
                 default:
                     item->antenna_status = GPSDATA_ANTENNA_UNSET;
                     GPSUTILS_WARN("Message %s: Antenna status cannot be %d. Ignoring\n",
-                                msgid_str, fsm->_pgtop_fntype);
+                                msgid_str, fsm->_pgtop_value);
                     rc = 1; //ignore
                     break;
                 }
@@ -830,9 +832,6 @@ static int gpsdata_parser_internal_execute(gpsdata_parser_t *fsm, const char *by
         GPSUTILS_ERROR("Error in parsing. fsm->cs: %d\t Len: %zu Buffer: \n", fsm->cs, len);
         gpsutils_hex_dump((const uint8_t *)bytes, len, GPSUTILS_LOG_PTR);
         return -1;
-    } else if (fsm->cs >= %%{ write first_final; }%%) {
-        fsm->cs = %%{write start;}%%;
-        return 1;
     }
     return 0;
 }
@@ -895,8 +894,8 @@ int gpsdata_parser_parse(gpsdata_parser_t *fsm,
         GPSUTILS_ERROR("Invalid function setup for parsing\n");
         return -1;
     }
-    int rc = 0;
-    if ((rc = fsm->execute(fsm, data, len)) < 0) {
+    int rc = fsm->execute(fsm, data, len);
+    if (rc < 0) {
         GPSUTILS_ERROR("Failed to parse data\n");
         if (fsm->dump_state)
             fsm->dump_state(fsm, stdout);
@@ -904,16 +903,12 @@ int gpsdata_parser_parse(gpsdata_parser_t *fsm,
     }
     if (outp) {
         if (fsm->items) {
-            size_t count = 0;
-            gpsdata_data_t *el = NULL;
-            LL_COUNT(fsm->items, el, count);
-            if (onum)
-                *onum = count;
-            GPSUTILS_DEBUG("adding %zu message items to the output list\n", count);
+            ssize_t count = gpsdata_list_count(fsm->items);
+            if (onum && count >= 0)
+                *onum = (size_t)count;
+            GPSUTILS_DEBUG("adding %zd message items to the output list\n", count);
             LL_CONCAT(*outp, fsm->items);
             fsm->items = NULL;
-        } else {
-            GPSUTILS_DEBUG("No message items were extracted\n");
         }
     } else {
         GPSUTILS_DEBUG("No list outp given, cleaning up parsed message items\n");

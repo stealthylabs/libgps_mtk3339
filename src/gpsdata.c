@@ -88,6 +88,27 @@ void gpsdata_list_free(gpsdata_data_t **listp)
     }
 }
 
+ssize_t gpsdata_list_count(const gpsdata_data_t *listp)
+{
+    if (listp) {
+        ssize_t count = 0;
+        const gpsdata_data_t *item = NULL;
+        LL_COUNT(listp, item, count);
+        return count;
+    }
+    return -1;
+}
+
+void gpsdata_list_dump(const gpsdata_data_t *listp, FILE *fp)
+{
+    if (listp) {
+        const gpsdata_data_t *item = NULL;
+        LL_FOREACH(listp, item) {
+            gpsdata_dump(item, fp);
+        }
+    }
+}
+
 void gpsdata_initialize(gpsdata_data_t *o)
 {
     if (o) {
@@ -161,5 +182,6 @@ void gpsdata_dump(const gpsdata_data_t *o, FILE *fp)
         if (o->next) {
             fprintf(fp, "next pointer in linkedin list: %p\n", (const void *)o->next);
         }
+        fflush(fp);
     }
 }

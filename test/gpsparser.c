@@ -25,18 +25,26 @@ void test_parse_pmtk()
     CU_ASSERT_PTR_NOT_NULL(fsm);
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", pmtk);
 
+    gpsdata_data_t *outp = NULL;
+    size_t onum = 0;
     gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, pmtk, strlen(pmtk), NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, pmtk, strlen(pmtk), &outp, &onum);
+    gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lf\n", tt.time_taken);
     gpsdata_parser_dump_state(fsm, stdout);
     CU_ASSERT(rc >= 0);
-    gpsutils_timer_stop(&tt);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
-
-    for (size_t i = 0; i <= strlen(pmtk); i++) { // includes the null character
-        rc = gpsdata_parser_parse(fsm, &pmtk[i], 1, NULL, NULL);
+    CU_ASSERT_EQUAL(onum, 0);
+    CU_ASSERT_PTR_NULL(outp);
+    gpsdata_list_dump(outp, stdout);
+    for (size_t idx = 0; idx <= strlen(pmtk); idx++) { // includes the null character
+        rc = gpsdata_parser_parse(fsm, &pmtk[idx], 1, &outp, &onum);
         CU_ASSERT(rc >= 0);
+        CU_ASSERT_EQUAL(onum, 0);
+        CU_ASSERT_PTR_NULL(outp);
+        gpsdata_list_dump(outp, stdout);
     }
     gpsdata_parser_dump_state(fsm, stderr);
+    gpsdata_list_free(&outp);
     gpsdata_parser_free(fsm);
 }
 
@@ -49,17 +57,30 @@ void test_parse_pgtop()
     CU_ASSERT_PTR_NOT_NULL(fsm);
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", pgtop);
 
-    gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, pgtop, strlen(pgtop), NULL, NULL);
-    CU_ASSERT(rc >= 0);
-    gpsutils_timer_stop(&tt);
-    gpsdata_parser_dump_state(fsm, stdout);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
+    gpsdata_data_t *outp = NULL;
+    size_t onum = 0;
 
-    for (size_t i = 0; i <= strlen(pgtop); i++) { // includes the null character
-        rc = gpsdata_parser_parse(fsm, &pgtop[i], 1, NULL, NULL);
+    gpsutils_timer_start(&tt);
+    rc = gpsdata_parser_parse(fsm, pgtop, strlen(pgtop), &outp, &onum);
+    gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
+    CU_ASSERT(rc >= 0);
+    gpsdata_parser_dump_state(fsm, stdout);
+    CU_ASSERT_EQUAL(onum, 1);
+    CU_ASSERT_PTR_NOT_NULL(outp);
+    gpsdata_list_dump(outp, stdout);
+    ssize_t cnt = gpsdata_list_count(outp);
+    GPSUTILS_INFO("Parsed message into %zd objects\n", cnt);
+    CU_ASSERT_EQUAL(cnt, onum);
+
+    for (size_t i = 0; i < strlen(pgtop) + 1; i++) { // includes the null character
+        rc = gpsdata_parser_parse(fsm, &pgtop[i], 1, &outp, &onum);
         CU_ASSERT(rc >= 0);
     }
+    cnt = gpsdata_list_count(outp);
+    GPSUTILS_INFO("Parsed message into %zd objects\n", cnt);
+    CU_ASSERT_EQUAL(cnt, 2);
+    gpsdata_list_free(&outp);
     gpsdata_parser_dump_state(fsm, stderr);
     gpsdata_parser_free(fsm);
 }
@@ -75,13 +96,22 @@ void test_parse_gpgga()
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
 
+    gpsdata_data_t *outp = NULL;
+    size_t onum = 0;
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", gpgga);
     gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, gpgga, gpgga_len, NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpgga, gpgga_len, &outp, &onum);
     gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
+    GPSUTILS_DEBUG("onum %zu\n", onum);
     gpsdata_parser_dump_state(fsm, stdout);
     CU_ASSERT(rc >= 0);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
+    CU_ASSERT_EQUAL(onum, 1);
+    CU_ASSERT_PTR_NOT_NULL(outp);
+    gpsdata_list_dump(outp, stdout);
+    ssize_t cnt = gpsdata_list_count(outp);
+    GPSUTILS_INFO("Parsed message into %zd objects\n", cnt);
+    CU_ASSERT_EQUAL(cnt, onum);
 
     /* split up the message into two to see if half-buffers can get parsed */
     char *gpgga_1 = malloc(64 * sizeof(char));
@@ -91,13 +121,23 @@ void test_parse_gpgga()
     CU_ASSERT_PTR_NOT_NULL(gpgga_2);
     memcpy(gpgga_2, &gpgga[64], gpgga_len - 64);
     
-    rc = gpsdata_parser_parse(fsm, gpgga_1, 64, NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpgga_1, 64, &outp, &onum);
+    CU_ASSERT(rc >= 0);
+    GPSUTILS_DEBUG("onum %zu\n", onum);
+    CU_ASSERT_EQUAL(onum, 1);
+    CU_ASSERT_PTR_NOT_NULL(outp);
+    gpsdata_parser_dump_state(fsm, stdout);
+    rc = gpsdata_parser_parse(fsm, gpgga_2, gpgga_len - 64, &outp, &onum);
+    GPSUTILS_DEBUG("onum %zu\n", onum);
     CU_ASSERT(rc >= 0);
     gpsdata_parser_dump_state(fsm, stdout);
-    rc = gpsdata_parser_parse(fsm, gpgga_2, gpgga_len - 64, NULL, NULL);
-    CU_ASSERT(rc >= 0);
-    gpsdata_parser_dump_state(fsm, stdout);
+    CU_ASSERT_EQUAL(onum, 1);
+    CU_ASSERT_PTR_NOT_NULL(outp);
+    cnt = gpsdata_list_count(outp);
+    GPSUTILS_INFO("Parsed message into %zd objects\n", cnt);
+    CU_ASSERT_EQUAL(cnt, 2);
 
+    gpsdata_list_free(&outp);
     gpsdata_parser_free(fsm);
     GPSUTILS_FREE(gpgga_1);
     GPSUTILS_FREE(gpgga_2);
@@ -113,14 +153,17 @@ void test_parse_gpgsa()
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
 
+    gpsdata_data_t *outp = NULL;
+    size_t onum = 0;
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", gpgsa);
     gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, gpgsa, gpgsa_len, NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpgsa, gpgsa_len, &outp, &onum);
     gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
     gpsdata_parser_dump_state(fsm, stdout);
     CU_ASSERT(rc >= 0);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
-
+    CU_ASSERT_EQUAL(onum, 0);
+    CU_ASSERT_PTR_NULL(outp);
     /* split up the message into two to see if half-buffers can get parsed */
     char *gpgsa_1 = malloc(gpgsa_len / 2 * sizeof(char));
     CU_ASSERT_PTR_NOT_NULL(gpgsa_1);
@@ -129,16 +172,18 @@ void test_parse_gpgsa()
     CU_ASSERT_PTR_NOT_NULL(gpgsa_2);
     memcpy(gpgsa_2, &gpgsa[gpgsa_len / 2], gpgsa_len - gpgsa_len / 2);
     
-    rc = gpsdata_parser_parse(fsm, gpgsa_1, gpgsa_len / 2, NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpgsa_1, gpgsa_len / 2, &outp, &onum);
     CU_ASSERT(rc >= 0);
     gpsdata_parser_dump_state(fsm, stdout);
-    rc = gpsdata_parser_parse(fsm, gpgsa_2, gpgsa_len - gpgsa_len / 2, NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpgsa_2, gpgsa_len - gpgsa_len / 2, &outp, &onum);
     CU_ASSERT(rc >= 0);
     gpsdata_parser_dump_state(fsm, stdout);
+    CU_ASSERT_EQUAL(onum, 0);
+    CU_ASSERT_PTR_NULL(outp);
 
-    gpsdata_parser_free(fsm);
     GPSUTILS_FREE(gpgsa_1);
     GPSUTILS_FREE(gpgsa_2);
+    gpsdata_parser_free(fsm);
 }
 
 void test_parse_gpgsv()
@@ -154,21 +199,27 @@ void test_parse_gpgsv()
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
 
+    gpsdata_data_t *outp = NULL;
+    size_t onum = 0;
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", gpgsv);
     gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, gpgsv, gpgsv_len, NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpgsv, gpgsv_len, &outp, &onum);
     gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
     gpsdata_parser_dump_state(fsm, stdout);
     CU_ASSERT(rc >= 0);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
+    CU_ASSERT_EQUAL(onum, 0);
+    CU_ASSERT_PTR_NULL(outp);
 
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", gpgsv1);
     gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, gpgsv1, strlen(gpgsv1), NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpgsv1, strlen(gpgsv1), &outp, &onum);
     gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
     gpsdata_parser_dump_state(fsm, stdout);
     CU_ASSERT(rc >= 0);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
+    CU_ASSERT_EQUAL(onum, 0);
+    CU_ASSERT_PTR_NULL(outp);
 
     gpsdata_parser_free(fsm);
 }
@@ -185,12 +236,20 @@ void test_parse_gprmc()
 
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", gprmc);
     gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, gprmc, gprmc_len, NULL, NULL);
+    gpsdata_data_t *outp = NULL;
+    size_t onum = 0;
+    rc = gpsdata_parser_parse(fsm, gprmc, gprmc_len, &outp, &onum);
     gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
     gpsdata_parser_dump_state(fsm, stdout);
     CU_ASSERT(rc >= 0);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
-
+    CU_ASSERT_EQUAL(onum, 1);
+    CU_ASSERT_PTR_NOT_NULL(outp);
+    gpsdata_list_dump(outp, stdout);
+    ssize_t cnt = gpsdata_list_count(outp);
+    GPSUTILS_INFO("Parsed message into %zd objects\n", cnt);
+    CU_ASSERT_EQUAL(cnt, onum);
+    gpsdata_list_free(&outp);
     gpsdata_parser_free(fsm);
 }
 
@@ -203,13 +262,22 @@ void test_parse_gpvtg()
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
 
+    gpsdata_data_t *outp = NULL;
+    size_t onum = 0;
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", gpvtg);
     gpsutils_timer_start(&tt);
-    rc = gpsdata_parser_parse(fsm, gpvtg, gpvtg_len, NULL, NULL);
+    rc = gpsdata_parser_parse(fsm, gpvtg, gpvtg_len, &outp, &onum);
     gpsutils_timer_stop(&tt);
+    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
     gpsdata_parser_dump_state(fsm, stdout);
     CU_ASSERT(rc >= 0);
-    GPSUTILS_INFO("Time taken to parse input: %lfs\n", tt.time_taken);
+    CU_ASSERT_EQUAL(onum, 1);
+    CU_ASSERT_PTR_NOT_NULL(outp);
+    gpsdata_list_dump(outp, stdout);
+    ssize_t cnt = gpsdata_list_count(outp);
+    GPSUTILS_INFO("Parsed message into %zd objects\n", cnt);
+    CU_ASSERT_EQUAL(cnt, onum);
+    gpsdata_list_free(&outp);
 
     gpsdata_parser_free(fsm);
 }
@@ -227,11 +295,13 @@ void test_parse_file()
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
     char buf[80];
+    gpsdata_data_t *outp = NULL;
     gpsutils_timer_start(&tt);
     while (!feof(fp)) {
         size_t nb = fread(buf, sizeof(char), sizeof(buf) / sizeof(char), fp);
         if (nb > 0) {
-            int rc = gpsdata_parser_parse(fsm, buf, nb, NULL, NULL);
+            size_t onum = 0;
+            int rc = gpsdata_parser_parse(fsm, buf, nb, &outp, &onum);
             CU_ASSERT(rc >= 0);
             gpsdata_parser_dump_state(fsm, stdout);
             memset(buf, 0, sizeof(buf) / sizeof(char));
@@ -244,6 +314,9 @@ void test_parse_file()
     }
     gpsutils_timer_stop(&tt);
     GPSUTILS_INFO("Time taken to parse input file %s: %lfs\n", g_filename, tt.time_taken);
+    CU_ASSERT_PTR_NOT_NULL(outp);
+    GPSUTILS_INFO("No. of objects in file: %zd\n", gpsdata_list_count(outp));
+    gpsdata_list_free(&outp);
 
     fclose(fp);
     gpsdata_parser_free(fsm);

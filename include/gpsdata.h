@@ -96,9 +96,11 @@ typedef struct gpsdata_data {
     struct gpsdata_data *next;    
 } gpsdata_data_t;
 
-void gpsdata_list_free(gpsdata_data_t **listp);
 void gpsdata_initialize(gpsdata_data_t *);
 void gpsdata_dump(const gpsdata_data_t *, FILE *);
+void gpsdata_list_free(gpsdata_data_t **listp);
+ssize_t gpsdata_list_count(const gpsdata_data_t *listp);
+void gpsdata_list_dump(const gpsdata_data_t *listp, FILE *fp);
 
 typedef struct gpsdata_parser_t gpsdata_parser_t;
 
