@@ -64,25 +64,27 @@ void gpsutils_timer_stop(gpsutils_timer_t *tt)
     }
 }
 
-void gpsutils_hex_dump(const uint8_t *in, size_t inlen, FILE *fp)
+void gpsutils_hex_dump(const uint8_t *inp, size_t inlen, FILE *fp)
 {
-    if (!in || inlen == 0 || !fp)
+    if (!inp || inlen == 0 || !fp)
         return;
     size_t rows = inlen / 16;
-    if (inlen % 16 > 0)
+    if ((inlen % 16) > 0)
         rows++;
     for (size_t i = 0; i < rows; ++i) {
         fprintf(fp, "%08zX ", i * 16);
         for (size_t j = 0; j < 16; ++j) {
-            if ((i * 16 + j) < inlen)
-                fprintf(fp, "%02X ", in[i * 16 + j]);
-            else
+            if ((i * 16 + j) < inlen) {
+                uint8_t ch = inp[i * 16 + j];
+                fprintf(fp, "%02X ", ch);
+            } else {
                 fprintf(fp, "   ");
+            }
         }
         fprintf(fp, " |");
         for (size_t j = 0; j < 16; ++j) {
             if ((i * 16 + j) < inlen) {
-                uint8_t ch = in[i * 16 + j];
+                uint8_t ch = inp[i * 16 + j];
                 if (ch < 0x20 || ch > 0x7E || !isprint(ch)) {
                     ch = '.';
                 }
