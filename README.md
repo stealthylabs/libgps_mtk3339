@@ -49,6 +49,26 @@ If you are a developer and want to check if the code compiles, links, installs a
 after you run `make install` you can run `./checkinstaller.sh` to compile,
 install and test.
 
+## EXAMPLES
+
+We have some examples provided using `libev` and `libuv` in the
+`src/libev_uart.c` and `src/libuv_uart.c` files, respectively. The GPS chip
+uses a 9600 bps baudrate, so the examples demonstrate how to handle that
+baudrate and parse the received data correctly.
+
+You can run the examples like below:
+
+```bash
+$ ./src/libev_gps_uart /dev/ttyUSB0
+$ ./src/libuv_gps_uart /dev/ttyUSB0
+```
+Here `/dev/ttyUSB0` is the GPS chip connected to a computer using a USB-TTL
+cable or using the Raspberry Pi headers. You must use the appropriate device
+path here based on your device and operating system. This has been tested on
+Linux but not on other operating systems. The examples will exit after 10
+seconds of receiving data. You can change that by editing the timeout in the
+example code.
+
 
 ## COPYRIGHT
 

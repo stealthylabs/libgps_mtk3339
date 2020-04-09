@@ -452,7 +452,7 @@ struct gpsdata_parser_t {
     ##ddmmyy
     UTCDate = digit >xn_tm_Z_dd @xn_tm_1_dd digit @xn_tm_0_dd
               digit >xn_tm_Z_mm @xn_tm_1_mm digit @xn_tm_0_mm %xn_tm_E_mm
-              digit >xn_tm_Z_yy @xn_tm_1_yy digit @xn_tm_0_yy %xn_tm_E_mm
+              digit >xn_tm_Z_yy @xn_tm_1_yy digit @xn_tm_0_yy %xn_tm_E_yy
             ;
 
     ## hhmmss.sss
@@ -825,8 +825,29 @@ static int gpsdata_parser_internal_execute(gpsdata_parser_t *fsm, const char *by
     if (!fsm || !bytes || len == 0) {
         return -1;
     }
-    fsm->p = bytes;
-    fsm->pe = bytes + len;
+    if (fsm->cs == %%{ write first_final; }%%) {
+        // parsing has not begun yet
+        // find the first $ sign
+        bool found = false;
+        GPSUTILS_DEBUG("Finding the first message in the stream. ");
+        for (size_t i = 0; i < len; ++i) {
+            if (bytes[i] == '$') {
+                fsm->p = &bytes[i];
+                fsm->pe = bytes + len;
+                GPSUTILS_NONE("found message at index %zu\n", i);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            GPSUTILS_WARN("First '$' sign message not found, trying to parse anyway\n");
+            fsm->p = bytes;
+            fsm->pe = bytes + len;
+        }
+    } else {
+        fsm->p = bytes;
+        fsm->pe = bytes + len;
+    }
     %% write exec;
     if (fsm->cs == %%{ write error; }%%) {
         GPSUTILS_ERROR("Error in parsing. fsm->cs: %d\t Len: %zu Buffer: \n", fsm->cs, len);

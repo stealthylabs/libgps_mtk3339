@@ -16,6 +16,8 @@
 typedef struct {
     gpsdata_parser_t *parser;
     gpsdata_data_t *datalistp;
+    int log_fd;
+    char log_file[PATH_MAX];
 } mygps_t;
 
 void device_io_cb(EV_P_ ev_io *w, int revents)
@@ -23,6 +25,7 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
     if (w && revents & EV_READ) {
         if (w->fd >= 0) {
             char buf[256];
+            memset(buf, 0, sizeof(buf));
             ssize_t nb = read(w->fd, buf, sizeof(buf));
             if (nb < 0) {//error
                 int err = errno;
@@ -41,17 +44,20 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
                     ev_io_stop(EV_A_ w);
                     close(w->fd);
                 } else {
+                    if (mydata->log_fd > 0) {
+                        write(mydata->log_fd, buf, nb);
+                    }
                     size_t onum = 0;
-                    int rc = gpsdata_parser_parse(mydata->parser, buf,
-                                    sizeof(buf), &(mydata->datalistp), &onum);
+                    int rc = gpsdata_parser_parse(mydata->parser, buf, nb,
+                                                &(mydata->datalistp), &onum);
                     if (rc < 0) {
-                        GPSUTILS_WARN("Failed to parse data:\n");
-                        gpsutils_hex_dump(buf, sizeof(buf), GPSUTILS_LOG_PTR);
+                        GPSUTILS_WARN("Failed to parse data %zd bytes:\n", nb);
+                        gpsutils_hex_dump(buf, (size_t)nb, GPSUTILS_LOG_PTR);
                     } else {
                         GPSUTILS_INFO("Parsed %zu packets\n", onum);
                         gpsdata_list_dump(mydata->datalistp, GPSUTILS_LOG_PTR);
-                        /* do more things here like add the data to a database */
-                        // free it to save memory
+                        // do more things here like add the data to a database
+                        // free list here to save memory growth
                         gpsdata_list_free(&(mydata->datalistp));
                         mydata->datalistp = NULL;
                     }
@@ -72,22 +78,41 @@ void timeout_cb(EV_P_ ev_timer *w, int revents)
 
 int main(int argc, char **argv)
 {
-    mygps_t mydata = { NULL, NULL };
+#ifndef NDEBUG
+    GPSUTILS_LOGLEVEL_SET(DEBUG);
+#else
+    GPSUTILS_LOGLEVEL_SET(INFO);
+#endif
+    mygps_t mydata;
+    memset(&mydata, 0, sizeof(mydata));
+    snprintf(mydata.log_file, sizeof(mydata.log_file) - 1, "/tmp/gps_%d.log", time(NULL));
+    // we log the data to a file for debugging
+    mydata.log_fd = open(mydata.log_file, O_RDWR | O_CLOEXEC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (mydata.log_fd < 0) {
+        int err = errno;
+        GPSUTILS_ERROR("Failed to open %s: %s(%d)\n", mydata.log_file, strerror(err), err);
+        return -1;
+    }
+    GPSUTILS_INFO("Logging all received data to %s\n", mydata.log_file);
     mydata.parser = gpsdata_parser_create();
     if (!mydata.parser) {
         GPSUTILS_ERROR("Failed to create gps parser\n");
+        close(mydata.log_fd);
         return -1;
     }
+
     ev_io device_watcher = { 0 };
     ev_timer timeout_watcher = { 0 };
     // use the default event loop
     struct ev_loop *loop = EV_DEFAULT;
     const char *dev = "/dev/ttyUSB0";
+    if (argc > 1) {
+        dev = argv[1];
+    }
+    GPSUTILS_INFO("Using %s as device\n", dev);
     int rc = 0;
-    int dev_fd = open(dev, O_NONBLOCK | O_RDONLY | O_NOCTTY | O_CLOEXEC);
+    int dev_fd = gpsutils_open_device(dev);
     if (dev_fd < 0) {
-        int err = errno;
-        GPSUTILS_ERROR("Failed to open %s: %s(%d)\n", dev, strerror(err), err);
         rc = -1;
     } else {
         ev_io_init(&device_watcher, device_io_cb, dev_fd, EV_READ);
@@ -103,5 +128,6 @@ int main(int argc, char **argv)
     // free memory
     gpsdata_parser_free(mydata.parser);
     gpsdata_list_free(&(mydata.datalistp));
+    close(mydata.log_fd);
     return rc;
 }
