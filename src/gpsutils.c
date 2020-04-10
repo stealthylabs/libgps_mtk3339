@@ -210,13 +210,16 @@ int gpsutils_set_baudrate(int fd, uint32_t baud_rate)
     return rc;
 }
 
-int gpsutils_open_device(const char *device)
+int gpsutils_open_device(const char *device, bool non_blocking)
 {
     if (!device) {
         GPSUTILS_ERROR("no device address given\n");
         return -1;
     }
-    int fd = open(device, O_NONBLOCK | O_RDONLY | O_NOCTTY | O_CLOEXEC);
+    int flags = O_RDONLY | O_NOCTTY | O_CLOEXEC;
+    if (non_blocking)
+        flags |= O_NDELAY;
+    int fd = open(device, flags);
     if (fd < 0) {
         int err = errno;
         char serrbuf[256];

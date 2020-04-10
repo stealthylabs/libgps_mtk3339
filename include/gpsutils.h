@@ -145,8 +145,9 @@ int gpsutils_set_baudrate(int fd, uint32_t baud_rate);
  * internally.
  * Returns the file descriptor if successful or -1 on error. The user must call
  * the close() function on the file descriptor when closing the device
+ * by default the device is opened in blocking mode
  */
-int gpsutils_open_device(const char *device);
+int gpsutils_open_device(const char *device, bool non_blocking);
 
 EXTERN_C_END
 

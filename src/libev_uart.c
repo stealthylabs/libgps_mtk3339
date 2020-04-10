@@ -24,7 +24,7 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
 {
     if (w && revents & EV_READ) {
         if (w->fd >= 0) {
-            char buf[256];
+            char buf[80];
             memset(buf, 0, sizeof(buf));
             ssize_t nb = read(w->fd, buf, sizeof(buf));
             if (nb < 0) {//error
@@ -34,9 +34,7 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
                 ev_io_stop(EV_A_ w);
                 close(w->fd);
             } else if (nb == 0) {
-                GPSUTILS_ERROR("EOF reached on device. No bytes read. shutting down I/O\n");
-                ev_io_stop(EV_A_ w);
-                close(w->fd);
+                GPSUTILS_WARN("no data received from device. waiting...\n");
             } else { // valid read
                 mygps_t *mydata = (mygps_t *)(w->data);
                 if (!mydata || !mydata->parser) {
@@ -53,6 +51,7 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
                     if (rc < 0) {
                         GPSUTILS_WARN("Failed to parse data %zd bytes:\n", nb);
                         gpsutils_hex_dump(buf, (size_t)nb, GPSUTILS_LOG_PTR);
+                        gpsdata_parser_reset(mydata->parser);
                     } else {
                         GPSUTILS_INFO("Parsed %zu packets\n", onum);
                         gpsdata_list_dump(mydata->datalistp, GPSUTILS_LOG_PTR);
@@ -111,7 +110,7 @@ int main(int argc, char **argv)
     }
     GPSUTILS_INFO("Using %s as device\n", dev);
     int rc = 0;
-    int dev_fd = gpsutils_open_device(dev);
+    int dev_fd = gpsutils_open_device(dev, true);
     if (dev_fd < 0) {
         rc = -1;
     } else {
@@ -120,11 +119,17 @@ int main(int argc, char **argv)
         device_watcher.data = (void *)&mydata;
         ev_io_start(loop, &device_watcher);
 
-        ev_timer_init(&timeout_watcher, timeout_cb, 10 /* seconds */, 0.);
-        ev_timer_start(loop, &timeout_watcher);
+        const char *no_timeout = getenv("NO_TIMEOUT");
+        if (no_timeout) {
+            GPSUTILS_INFO("No timeout set, press Ctrl+C to exit loop\n");
+        } else {
+            ev_timer_init(&timeout_watcher, timeout_cb, 10 /* seconds */, 0.);
+            ev_timer_start(loop, &timeout_watcher);
+        }
         ev_run(loop, 0);
         rc = 0;
     }
+    close(dev_fd);
     // free memory
     gpsdata_parser_free(mydata.parser);
     gpsdata_list_free(&(mydata.datalistp));

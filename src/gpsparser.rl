@@ -60,13 +60,12 @@ struct gpsdata_parser_t {
     gpsdata_mode_t mode2;
     gpsdata_mode_t mode_common;
     uint8_t _num_sats;//0 - 14
-    uint8_t _num_msg_max;//values 1-3
-    uint8_t _num_msg_idx;//values 0-2 as we convert it to 0-based indexing
+    uint8_t _num_msg_max;//values 1-3 as per datasheet, but sometimes 4 show up so 1-9
+    uint8_t _num_msg_idx;//values 1-9 as it is 1-based indexing
     bool _rmc_valid;
     uint8_t _pgtop_fntype;// is this always 11 ?
     uint8_t _pgtop_value;// values 1-3
-    
-    
+
     uint16_t _satellites_used[12];
     uint8_t  _satellites_used_idx;
     float _hdop;
@@ -80,16 +79,17 @@ struct gpsdata_parser_t {
     float _heading_degrees; // magnetic heading
     float _magvar_degrees; // magnetic variation
     gpsdata_direction_t _magvar_direction; // magnetic variation direction
-    
+
+#define FSM_GSV_SAT_MAX 9
     struct gpsdata_parser_gsv_t {
-        uint8_t satellite_id; // values 1-32
+        uint8_t satellite_id; // values 1-32. sometimes can be > 48
         uint8_t elevation; // values 0-90
         bool is_elevation_null;
         uint16_t azimuth; // values 0-359
         bool is_azimuth_null;
         uint8_t snr_cno; // null, 0-99.
         bool is_snr_cno_null; // true if null
-    } _gsv_sats[4];
+    } _gsv_sats[FSM_GSV_SAT_MAX]; // can handle a total of 9 messages at max
     uint8_t _gsv_sat_idx;
 };
 
@@ -171,10 +171,10 @@ struct gpsdata_parser_t {
         fsm->_tmp_float = NAN;
     }
     action xn_latitude_ns {
-        fsm->_lat.direction = (fc == 'N') ? GPSDATA_DIRECTION_NORTH : GPSDATA_DIRECTION_SOUTH; 
+        fsm->_lat.direction = (fc == 'N') ? GPSDATA_DIRECTION_NORTH : GPSDATA_DIRECTION_SOUTH;
     }
     action xn_longitude_ew {
-        fsm->_lon.direction = (fc == 'E') ? GPSDATA_DIRECTION_EAST : GPSDATA_DIRECTION_WEST; 
+        fsm->_lon.direction = (fc == 'E') ? GPSDATA_DIRECTION_EAST : GPSDATA_DIRECTION_WEST;
     }
     action xn_magvariation_ew {
         if (fc == 'E') {
@@ -221,28 +221,28 @@ struct gpsdata_parser_t {
             fsm->mode_common = GPSDATA_MODE_ESTIMATED;
         }
     }
-    
+
     action xn_status_valid {
         if (fc == 'A') {
             fsm->_rmc_valid = true;
         } else if (fc == 'V') {
             fsm->_rmc_valid = true;
         } else {
-            GPSUTILS_ERROR("GPRMC Status can be either 'A' or 'V', not '%c'\n", fc); 
+            GPSUTILS_ERROR("GPRMC Status can be either 'A' or 'V', not '%c'\n", fc);
             fsm->_rmc_valid = false;
         }
-    } 
-  
+    }
+
     action xn_pgtop_fntype {
         fsm->_pgtop_fntype = fsm->_pgtop_fntype * 10 + (fc - '0');
     }
-    
+
     action xn_pgtop_value {
         fsm->_pgtop_value = (fc - '0');
         if (!(fsm->_pgtop_value >= 1 && fsm->_pgtop_value <= 3)) {
             GPSUTILS_ERROR("PGTOP value should be in [1,3]. We have: %d", fsm->_pgtop_value);
         }
-    } 
+    }
 
     action xn_num_sats {
         fsm->_num_sats = fsm->_num_sats * 10 + (fc - '0');
@@ -334,20 +334,29 @@ struct gpsdata_parser_t {
     }
     action xn_gpgsv_msgcount {
         fsm->_num_msg_max = (fc - '0');
+        if (fsm->_gsv_sat_idx > fsm->_num_msg_max || fsm->_gsv_sat_idx > FSM_GSV_SAT_MAX) {
+            GPSUTILS_ERROR("_gsv_sat_idx %d > _num_msg_max %d || %d. Parser has an error\n",
+                    fsm->_gsv_sat_idx, fsm->_num_msg_max, FSM_GSV_SAT_MAX);
+            fbreak;
+        }
     }
     action xn_gpgsv_msgindex {
-        fsm->_num_msg_idx = (fc - '0') - 1; // index is 1-based so we make it 0-based
+        fsm->_num_msg_idx = (fc - '0'); // index is 1-based
+        if ((fsm->_num_msg_idx - 1) != fsm->_gsv_sat_idx) {
+            GPSUTILS_WARN("GPGSV message index %d does not match parser state internal message index %d\n",
+                fsm->_num_msg_idx, fsm->_gsv_sat_idx + 1);
+        }
     }
     action xn_satellite_id {
         if (!isnanf(fsm->_tmp_float)) {
             uint8_t num = ((uint32_t)(fsm->_tmp_float)) & 0xFF;
             fsm->_tmp_float = NAN;
-            if (num >= 1 && num <= 32) {
+            if (num >= 1 && num <= 99) {
                 GPSUTILS_DEBUG("Satellite ID: %d\n", num);
                 fsm->_gsv_sats[fsm->_gsv_sat_idx].satellite_id = num;
             } else {
-                GPSUTILS_ERROR("GPGSV satellite_id is not in [1,32]: %d\n", num);
-                fsm->_gsv_sats[fsm->_gsv_sat_idx].satellite_id = 0;
+                GPSUTILS_WARN("GPGSV satellite_id is not in [1,99]: %d\n", num);
+                fsm->_gsv_sats[fsm->_gsv_sat_idx].satellite_id = num;
             }
         } else {
             GPSUTILS_DEBUG("GPGSV satelliteid is empty/nan\n");
@@ -502,8 +511,8 @@ struct gpsdata_parser_t {
     ## the number of GPS satellites in view satellite ID numbers, elevation,
     ## azimuth, and SNR values
     gpgsv = 'GPGSV' @xn_msgid_gpgsv COMMA .
-        [1-3] @xn_gpgsv_msgcount COMMA .
-        [1-3] @xn_gpgsv_msgindex COMMA .
+        [1-9] @xn_gpgsv_msgcount COMMA .
+        [1-9] @xn_gpgsv_msgindex COMMA .
         (digit{1,2} $xn_num_sats) .
         (COMMA optional_integer %xn_satellite_id .
          COMMA optional_integer %xn_elevation .
@@ -521,7 +530,7 @@ struct gpsdata_parser_t {
         [EW] @xn_longitude_ew COMMA .
         number %xn_speed_knots COMMA .
         number %xn_ground_course COMMA .
-        UTCDate COMMA . 
+        UTCDate COMMA .
         optional_number %xn_magvariation COMMA .
         ([EW] | zlen) @xn_magvariation_ew COMMA . # this is for magnetic variation
         [ADE] @xn_mode_common COMMA ?; #optional comma in case needed
@@ -539,13 +548,17 @@ struct gpsdata_parser_t {
         integer @xn_pgtop_fntype COMMA .
         [1-3] @xn_pgtop_value COMMA ?; #optional comma in case needed
 
-    ## cold start: don't use time, position, almanacs & ephemeris data at re-start 
+    ## cold start: don't use time, position, almanacs & ephemeris data at re-start
     pmtk = 'PMTK' @xn_msgid_pmtk '103'; #for cold start
 
+    action xn_fake_msg {
+        GPSUTILS_WARN("fake message 0x00 0xFF received, ignoring\n");
+    }
     message = '$' >xn_clean_state .
         (gpgga | gpgsa | gpgsv | gprmc | gpvtg | pgtop | pmtk) >xn_checksum_reset $xn_checksum_calculate .
         '*' xdigit{2} $xn_checksum_xdigit %xn_checksum_verify;
-    main := (message %xn_message_save | space | empty | 0x00)* ;# allow nulls
+    fake_message = 0x00 0xFF %xn_fake_msg;
+    main := (message %xn_message_save | fake_message | space | empty | 0x00 )* ;# allow nulls
 
 }%%
 
@@ -562,12 +575,21 @@ static void gpsdata_parser_internal_clean_state(gpsdata_parser_t *fsm)
     fsm->_tmp_float = NAN;
     fsm->_calc_checksum = 0;
     fsm->_checksum = 0;
-    fsm->_num_sats = 0;
+    fsm->_msgid = GPSDATA_MSGID_UNSET;
+    fsm->_lat.direction = GPSDATA_DIRECTION_UNSET;
+    fsm->_lat.degrees = SHRT_MIN;
+    fsm->_lat.minutes = NAN;
+    fsm->_lon.direction = GPSDATA_DIRECTION_UNSET;
+    fsm->_lon.degrees = SHRT_MIN;
+    fsm->_lon.minutes = NAN;
     fsm->mode1 = GPSDATA_MODE_UNSET;
     fsm->mode2 = GPSDATA_MODE_UNSET;
     fsm->mode_common = GPSDATA_MODE_UNSET;
     fsm->_posfix = GPSDATA_POSFIX_NOFIX;
     fsm->_rmc_valid = false;
+    fsm->_num_sats = 0;
+    fsm->_num_msg_max = 0;
+    fsm->_num_msg_idx = 0;
     fsm->_pgtop_fntype = 0;
     fsm->_pgtop_value = 0;
     memset(fsm->_satellites_used, 0, sizeof(fsm->_satellites_used));
@@ -582,10 +604,9 @@ static void gpsdata_parser_internal_clean_state(gpsdata_parser_t *fsm)
     fsm->_course_degrees = NAN;
     fsm->_heading_degrees = NAN;
     fsm->_magvar_degrees = NAN;
-    fsm->_num_msg_idx = 0;
-    fsm->_num_msg_max = 0;
-    fsm->_gsv_sat_idx = 0;
+    fsm->_magvar_direction = GPSDATA_DIRECTION_UNSET;
     memset(fsm->_gsv_sats, 0, sizeof(fsm->_gsv_sats));
+    fsm->_gsv_sat_idx = 0;
 }
 
 static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE *fp)
@@ -618,10 +639,10 @@ static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE
         fprintf(fp, "mode-1: %s mode-2: %s mode-common: %s\n",
             gpsdata_mode_tostring(fsm->mode1), gpsdata_mode_tostring(fsm->mode2),
             gpsdata_mode_tostring(fsm->mode_common));
-        fprintf(fp, "GSV number of messages: %d 0-based index of this message: %d\n",
+        fprintf(fp, "GSV number of messages: %d 1-based index of this message: %d\n",
                 fsm->_num_msg_max, fsm->_num_msg_idx);
         fprintf(fp, "GSV Satellites: found: %d\n", fsm->_gsv_sat_idx);
-        for (uint8_t i = 0; i < fsm->_gsv_sat_idx && i < 4; ++i) {
+        for (uint8_t i = 0; i < fsm->_gsv_sat_idx && i < FSM_GSV_SAT_MAX; ++i) {
             fprintf(fp, "[%d]: ID: %d ", i, fsm->_gsv_sats[i].satellite_id);
             if (fsm->_gsv_sats[i].is_elevation_null) {
                 fprintf(fp, "Elevation: (null) ");
@@ -850,8 +871,10 @@ static int gpsdata_parser_internal_execute(gpsdata_parser_t *fsm, const char *by
     }
     %% write exec;
     if (fsm->cs == %%{ write error; }%%) {
-        GPSUTILS_ERROR("Error in parsing. fsm->cs: %d\t Len: %zu Buffer: \n", fsm->cs, len);
-        gpsutils_hex_dump((const uint8_t *)bytes, len, GPSUTILS_LOG_PTR);
+        size_t errlen = fsm->pe - fsm->p;
+        GPSUTILS_ERROR("Error in parsing. fsm->cs: %d\t Len: %zu Buffer: \n",
+                       fsm->cs, errlen);
+        gpsutils_hex_dump((const uint8_t *)fsm->p, errlen, GPSUTILS_LOG_PTR);
         return -1;
     }
     return 0;
@@ -904,7 +927,7 @@ void gpsdata_parser_reset(gpsdata_parser_t *fsm)
 }
 
 int gpsdata_parser_parse(gpsdata_parser_t *fsm,
-            const char *data, size_t len, 
+            const char *data, size_t len,
             gpsdata_data_t **outp, size_t *onum)
 {
     if (!fsm || !data || len == 0) {
@@ -919,7 +942,7 @@ int gpsdata_parser_parse(gpsdata_parser_t *fsm,
     if (rc < 0) {
         GPSUTILS_ERROR("Failed to parse data\n");
         if (fsm->dump_state)
-            fsm->dump_state(fsm, stdout);
+            fsm->dump_state(fsm, GPSUTILS_LOG_PTR);
         return rc;
     }
     if (outp) {

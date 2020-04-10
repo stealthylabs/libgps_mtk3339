@@ -140,12 +140,12 @@ void gpsdata_dump(const gpsdata_data_t *o, FILE *fp)
         const char *msgid_str = gpsdata_msgid_tostring(o->msgid);
         fprintf(fp, "msgid: %s\n", msgid_str);
         if (o->latitude.direction != GPSDATA_DIRECTION_UNSET) {
-            fprintf(fp, "latitude: %d' %0.04f\" %s\n",
+            fprintf(fp, "latitude: %d° %0.04f\' %s\n",
                    o->latitude.degrees, o->latitude.minutes,
                   gpsdata_direction_tostring(o->latitude.direction));
         }
         if (o->longitude.direction != GPSDATA_DIRECTION_UNSET) {
-            fprintf(fp, "longitude: %d' %0.04f\" %s\n",
+            fprintf(fp, "longitude: %d° %0.04f\' %s\n",
                    o->longitude.degrees, o->longitude.minutes,
                   gpsdata_direction_tostring(o->longitude.direction));
         }

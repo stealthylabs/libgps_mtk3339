@@ -28,7 +28,7 @@ void test_parse_file()
     CU_ASSERT_PTR_NOT_NULL(fp);
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
-    char buf[80];
+    char buf[256];
     gpsdata_data_t *outp = NULL;
     gpsutils_timer_start(&tt);
     while (!feof(fp)) {
