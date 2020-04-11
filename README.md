@@ -23,7 +23,7 @@ This is why this library is in C, so it can directly execute on the Raspberry Pi
 or similar SBCs where it can be integrated into other applications easily.
 
 Another reason for using this C library is to be able to integrate this library
-with applications using libraries like `libuv` or `libev` or similar event-based libraries,  and control
+with applications using libraries like `libev` or similar event-based libraries,  and control
 the GPS reading or adjustments using events and keeping the power consumption low on such devices.
 
 
@@ -32,7 +32,7 @@ the GPS reading or adjustments using events and keeping the power consumption lo
 ```bash
 $ git submodule init
 $ git submodule update
-$ sudo apt-get -y install ragel libuv1-dev libev-dev
+$ sudo apt-get -y install ragel libev-dev
 $ ./autogen.sh
 $ ./configure
 $ make
@@ -51,8 +51,7 @@ install and test.
 
 ## EXAMPLES
 
-We have some examples provided using `libev` and `libuv` in the
-`src/libev_uart.c` and `src/libuv_uart.c` files, respectively. The GPS chip
+We have an example provided using `libev` in the `src/libev_uart.c` file. The GPS chip
 uses a 9600 bps baudrate, so the examples demonstrate how to handle that
 baudrate and parse the received data correctly.
 
@@ -60,7 +59,6 @@ You can run the examples like below:
 
 ```bash
 $ ./src/libev_gps_uart /dev/ttyUSB0
-$ ./src/libuv_gps_uart /dev/ttyUSB0
 ```
 Here `/dev/ttyUSB0` is the GPS chip connected to a computer using a USB-TTL
 cable or using the Raspberry Pi headers. You must use the appropriate device

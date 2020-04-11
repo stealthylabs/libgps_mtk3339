@@ -25,13 +25,6 @@ gps_utlist.h: $(thirdparty_includedir)/utlist.h
 	/bin/cp -v $^ $@
 
 noinst_PROGRAMS=
-if HAVE_LIBUV
-noinst_PROGRAMS+=libuv_uart_gps
-libuv_uart_gps_SOURCES=libuv_uart.c
-libuv_uart_gps_CFLAGS=$(LIBUV_CFLAGS)
-libuv_uart_gps_LDADD=libgps_mtk3339.la $(LIBUV_LIBS)
-endif
-
 if HAVE_LIBEV
 noinst_PROGRAMS+=libev_uart_gps
 libev_uart_gps_SOURCES=libev_uart.c
