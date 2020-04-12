@@ -115,6 +115,40 @@ int gpsdata_parser_parse(gpsdata_parser_t *ptr,
             size_t *outnum // the number of elements added to the list in this call
             );
 
+/* this is necessary if you're reading the chip using this library.
+ * you can call open() on the device and get a filedescriptor and then call this
+ * function on it to set the BAUD Rate to 9600, which is the default. You may
+ * try 115200 or other rates. supported values are 1200, 2400, 4800, 9600,
+ * 19200, 38400, 57600, 115200. Anything greater than that is rejected and 9600
+ * is used. -1 is returned if fd is invalid or setting the baud rate has failed
+ */
+int gpsdevice_set_baudrate(int fd, uint32_t baud_rate);
+/* a wrapper function for opening device in Read-only mode and setting baud rate
+ * to 9600 bps. this function calls gpsutils_set_baudrate() with 9600 bps
+ * internally.
+ * Returns the file descriptor if successful or -1 on error. The user must call
+ * the close() function on the file descriptor when closing the device
+ * by default the device is opened in blocking mode
+ */
+int gpsdevice_open(const char *device, bool non_blocking);
+void gpsdevice_close(int fd);
+
+int gpsdevice_set_restart(int fd, bool is_warm);
+int gpsdevice_set_standby(int fd);
+/* the position fix interval is set here. values can range between 100 and
+ * 10000 milliseconds. any other value defaults to 1000.
+ */
+int gpsdevice_set_fix_interval(int fd, int milliseconds);
+
+/* navspeed threshold in m/s. valid values are 0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5,
+ * 2.0 m/s. Any other value defaults to 0.2 m/s. 0 m/s disables the speed
+ * threshold.
+ * if the speed is slower than the threshold the position is frozen. the user
+ * may want to adjust this based on the application.
+ */
+int gpsdevice_set_speed_threshold(int fd, float speed);
+int gpsdevice_request_firmware_info(int fd);
+const char *gpsdevice_get_firmware_info(int fd);
 
 EXTERN_C_END
 #endif /* __GPSDATA_H__ */

@@ -132,23 +132,6 @@ void gpsutils_hex_dump(const uint8_t *in, size_t inlen, FILE *fp);
 uint8_t gpsutils_hex_parse(const char a);
 void gpsutils_string_toupper(char *s);
 
-/* this is necessary if you're reading the chip using this library.
- * you can call open() on the device and get a filedescriptor and then call this
- * function on it to set the BAUD Rate to 9600, which is the default. You may
- * try 115200 or other rates. supported values are 1200, 2400, 4800, 9600,
- * 19200, 38400, 57600, 115200. Anything greater than that is rejected and 9600
- * is used. -1 is returned if fd is invalid or setting the baud rate has failed
- */
-int gpsutils_set_baudrate(int fd, uint32_t baud_rate);
-/* a wrapper function for opening device in Read-only mode and setting baud rate
- * to 9600 bps. this function calls gpsutils_set_baudrate() with 9600 bps
- * internally.
- * Returns the file descriptor if successful or -1 on error. The user must call
- * the close() function on the file descriptor when closing the device
- * by default the device is opened in blocking mode
- */
-int gpsutils_open_device(const char *device, bool non_blocking);
-
 EXTERN_C_END
 
 #endif /* __GPSUTILS_UTILS_H__ */

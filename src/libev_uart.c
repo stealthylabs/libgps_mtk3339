@@ -1,4 +1,5 @@
 #include <gpsconfig.h>
+#include <gpsdata.h>
 #ifdef HAVE_ERRNO_H
     #include <errno.h>
 #endif
@@ -11,7 +12,6 @@
 #ifdef HAVE_EV_H
     #include <ev.h>
 #endif
-#include <gpsdata.h>
 
 typedef struct {
     gpsdata_parser_t *parser;
@@ -32,7 +32,7 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
                 GPSUTILS_ERROR("Error reading device fd: %d. Error: %s(%d)\n",
                         w->fd, strerror(err), err);
                 ev_io_stop(EV_A_ w);
-                close(w->fd);
+                gpsdevice_close(w->fd);
             } else if (nb == 0) {
                 GPSUTILS_WARN("no data received from device. waiting...\n");
             } else { // valid read
@@ -40,14 +40,19 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
                 if (!mydata || !mydata->parser) {
                     GPSUTILS_ERROR("Invalid parser pointer. closing I/O\n");
                     ev_io_stop(EV_A_ w);
-                    close(w->fd);
+                    gpsdevice_close(w->fd);
                 } else {
                     if (mydata->log_fd > 0) {
                         write(mydata->log_fd, buf, nb);
                     }
+                    gpsutils_timer_t timer;
                     size_t onum = 0;
+                    gpsutils_timer_start(&timer);
                     int rc = gpsdata_parser_parse(mydata->parser, buf, nb,
                                                 &(mydata->datalistp), &onum);
+                    gpsutils_timer_stop(&timer);
+                    GPSUTILS_DEBUG("Time Taken to parse %zd bytes: %0.08lf\n",
+                                    nb, timer.time_taken);
                     if (rc < 0) {
                         GPSUTILS_WARN("Failed to parse data %zd bytes:\n", nb);
                         gpsutils_hex_dump(buf, (size_t)nb, GPSUTILS_LOG_PTR);
@@ -110,7 +115,7 @@ int main(int argc, char **argv)
     }
     GPSUTILS_INFO("Using %s as device\n", dev);
     int rc = 0;
-    int dev_fd = gpsutils_open_device(dev, true);
+    int dev_fd = gpsdevice_open(dev, true);
     if (dev_fd < 0) {
         rc = -1;
     } else {
@@ -129,7 +134,7 @@ int main(int argc, char **argv)
         ev_run(loop, 0);
         rc = 0;
     }
-    close(dev_fd);
+    gpsdevice_close(dev_fd);
     // free memory
     gpsdata_parser_free(mydata.parser);
     gpsdata_list_free(&(mydata.datalistp));
