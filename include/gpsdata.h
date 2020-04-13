@@ -91,6 +91,7 @@ typedef struct gpsdata_data {
     float heading_degrees;
     // antenna status
     gpsdata_antenna_t antenna_status;
+    char *firmware_info;
     /* make this a linked list using utlist.h or gps_utlist.h in
      * our case to make sure we get expected behavior */
     struct gpsdata_data *next;    
@@ -125,7 +126,8 @@ int gpsdata_parser_parse(gpsdata_parser_t *ptr,
 int gpsdevice_set_baudrate(int fd, uint32_t baud_rate);
 /* a wrapper function for opening device in Read-only mode and setting baud rate
  * to 9600 bps. this function calls gpsutils_set_baudrate() with 9600 bps
- * internally.
+ * internally. sets the fix interval to 1000 milliseconds. sets the enabled
+ * messages to GPRMC and GPGGA.
  * Returns the file descriptor if successful or -1 on error. The user must call
  * the close() function on the file descriptor when closing the device
  * by default the device is opened in blocking mode
@@ -133,22 +135,48 @@ int gpsdevice_set_baudrate(int fd, uint32_t baud_rate);
 int gpsdevice_open(const char *device, bool non_blocking);
 void gpsdevice_close(int fd);
 
-int gpsdevice_set_restart(int fd, bool is_warm);
+typedef enum {
+    GPSDEVICE_RESTART_COLD, // cold restart, dont use time/position/ephemeris/almanac data at restart
+    GPSDEVICE_RESTART_HOT, // hot restart: use all existing settings
+    GPSDEVICE_RESTART_WARM, // warm restart: dont use ephemeris at restart 
+    GPSDEVICE_RESTART_FACTORY, // restart and reset to factory settings
+} gpsdevice_restart_type_t;
+/* cold or warm or hot or factory restart. default is cold
+ * return -1 on error and 0 on success
+ * */
+int gpsdevice_set_restart(int fd, gpsdevice_restart_type_t rt);
+/*
+ * set the GPS chip to standby mode
+ *  return -1 on error and 0 on success
+ *  to exit standby mode send any byte from host, so send any message
+ */
 int gpsdevice_set_standby(int fd);
 /* the position fix interval is set here. values can range between 100 and
- * 10000 milliseconds. any other value defaults to 1000.
+ * 10000 milliseconds. any value > 10000 is 10000, and any value < 100 is 100.
+ * return -1 on error and 0 on success
+ * for a 9600 Baud rate your value should be at least 1000
  */
-int gpsdevice_set_fix_interval(int fd, int milliseconds);
+int gpsdevice_set_fix_interval(int fd, uint16_t milliseconds);
+
+// enable msgid like GPGSV/GPGSA/GPVTG. By default GPRMC and GPGGA are enabled, and
+// the others disabled
+// if GPVTG/GPGSA are enabled the frequency is set to every 1 position fix
+// if GPGSV is enabled the frequency is set to every 5 position fixes.
+int gpsdevice_set_enabled(int fd, bool is_gpvtg, bool is_gpgsa, bool is_gpgsv);
 
 /* navspeed threshold in m/s. valid values are 0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5,
  * 2.0 m/s. Any other value defaults to 0.2 m/s. 0 m/s disables the speed
  * threshold.
  * if the speed is slower than the threshold the position is frozen. the user
  * may want to adjust this based on the application.
+ * return -1 on error and 0 on success
  */
 int gpsdevice_set_speed_threshold(int fd, float speed);
+/* request firmware info of the chip. reads the firmware info and fills the
+ * gpsdata_data_t firmware_info pointer when the data is received.
+// return -1 on error and 0 on success
+ */
 int gpsdevice_request_firmware_info(int fd);
-const char *gpsdevice_get_firmware_info(int fd);
 
 EXTERN_C_END
 #endif /* __GPSDATA_H__ */

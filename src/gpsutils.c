@@ -133,3 +133,19 @@ void gpsutils_string_toupper(char *s)
         }
     }
 }
+
+int gpsutils_checksum(const char *buf, ssize_t len)
+{
+    if (buf) {
+        if (len <= 0)
+            len = strlen(buf);
+        int checksum = 0;
+        for (ssize_t i = 0; i < len; ++i) {
+            checksum ^= buf[i];
+        }
+        //GPSUTILS_DEBUG("checksum for msg: %s is %d(0x%02x)\n", buf, checksum, checksum);
+        return checksum;
+    } else {
+        return -1;
+    }
+}

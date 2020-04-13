@@ -132,6 +132,12 @@ void gpsutils_hex_dump(const uint8_t *in, size_t inlen, FILE *fp);
 uint8_t gpsutils_hex_parse(const char a);
 void gpsutils_string_toupper(char *s);
 
+/* 
+ * calculate the NMEA checksum. if len is 0 or -1, strlen() is called on buf to
+ * calculate its length
+ */
+int gpsutils_checksum(const char *buf, ssize_t len);
+
 EXTERN_C_END
 
 #endif /* __GPSUTILS_UTILS_H__ */

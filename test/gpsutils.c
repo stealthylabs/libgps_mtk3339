@@ -87,6 +87,18 @@ void test_hex_dump()
     GPSUTILS_FREE(buf);
 }
 
+void test_checksum()
+{
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK251,38400", -1), 0x27);
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK251,9600", -1), 0x17);
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK251,115200", -1), 0x1F);
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK251,0", -1), 0x28);
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK220,100", -1), 0x2F);
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK220,200", -1), 0x2C);
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK220,1000", -1), 0x1F);
+    CU_ASSERT_EQUAL(gpsutils_checksum("PMTK102", -1), 0x31);
+}
+
 int main(int argc, char **argv)
 {
     int err = 0;
@@ -112,6 +124,8 @@ int main(int argc, char **argv)
         if (!CU_ADD_TEST(suite, test_str_toupper))
             break;
         if (!CU_ADD_TEST(suite, test_hex_dump))
+            break;
+        if (!CU_ADD_TEST(suite, test_checksum))
             break;
         /* set the mode of the test run in
          * debug/release mode*/
