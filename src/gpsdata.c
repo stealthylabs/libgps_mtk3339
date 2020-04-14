@@ -34,6 +34,7 @@ const char *gpsdata_msgid_tostring(gpsdata_msgid_t m)
     case GPSDATA_MSGID_GPGSV: return "GPGSV";
     case GPSDATA_MSGID_GPRMC: return "GPRMC";
     case GPSDATA_MSGID_GPVTG: return "GPVTG";
+    case GPSDATA_MSGID_GPGLL: return "GPGLL";
     case GPSDATA_MSGID_PGTOP: return "PGTOP";
     case GPSDATA_MSGID_PMTK:  return "PMTK";
     default: break;
@@ -251,7 +252,7 @@ void gpsdevice_close(int fd)
 }
 
 //NULL terminated messages are sent
-static int gpsdevice_send_message(int fd, const char *msg)
+int gpsdevice_send_message(int fd, const char *msg)
 {
     if (fd < 0 || !msg)
         return -1;

@@ -62,7 +62,7 @@ struct gpsdata_parser_t {
     uint8_t _num_sats;//0 - 14
     uint8_t _num_msg_max;//values 1-3 as per datasheet, but sometimes 4 show up so 1-9
     uint8_t _num_msg_idx;//values 1-9 as it is 1-based indexing
-    bool _rmc_valid;
+    bool _is_valid; // used by GPRMC/GPGLL
     uint8_t _pgtop_fntype;// is this always 11 ?
     uint8_t _pgtop_value;// values 1-3
 
@@ -91,6 +91,10 @@ struct gpsdata_parser_t {
         bool is_snr_cno_null; // true if null
     } _gsv_sats[FSM_GSV_SAT_MAX]; // can handle a total of 9 messages at max
     uint8_t _gsv_sat_idx;
+
+    // PMTK command specific
+    uint16_t _pmtkack_cmd;
+    uint8_t _pmtkack_flag;
 };
 
 %%{
@@ -107,6 +111,7 @@ struct gpsdata_parser_t {
     action xn_msgid_gpgsv { fsm->_msgid = GPSDATA_MSGID_GPGSV; }
     action xn_msgid_gprmc { fsm->_msgid = GPSDATA_MSGID_GPRMC; }
     action xn_msgid_gpvtg { fsm->_msgid = GPSDATA_MSGID_GPVTG; }
+    action xn_msgid_gpgll { fsm->_msgid = GPSDATA_MSGID_GPGLL; }
     action xn_msgid_pgtop { fsm->_msgid = GPSDATA_MSGID_PGTOP; }
     action xn_msgid_pmtk  { fsm->_msgid = GPSDATA_MSGID_PMTK;  }
 
@@ -219,17 +224,21 @@ struct gpsdata_parser_t {
             fsm->mode_common = GPSDATA_MODE_DIFFERENTIAL;
         } else if (fc == 'E') {
             fsm->mode_common = GPSDATA_MODE_ESTIMATED;
+        } else {
+            fsm->mode_common = GPSDATA_MODE_UNSET;
+            GPSUTILS_WARN("Received invalid mode %c. Ignoring\n", fc);
         }
     }
 
-    action xn_status_valid {
+    action xn_status_valid {//GPRMC/GPGLL
         if (fc == 'A') {
-            fsm->_rmc_valid = true;
+            fsm->_is_valid = true;
         } else if (fc == 'V') {
-            fsm->_rmc_valid = true;
+            fsm->_is_valid = true;
         } else {
-            GPSUTILS_ERROR("GPRMC Status can be either 'A' or 'V', not '%c'\n", fc);
-            fsm->_rmc_valid = false;
+            GPSUTILS_ERROR("%s Status can be either 'A' or 'V', not '%c'\n",
+                        gpsdata_msgid_tostring(fsm->_msgid), fc);
+            fsm->_is_valid = false;
         }
     }
 
@@ -422,6 +431,19 @@ struct gpsdata_parser_t {
         fsm->_gsv_sat_idx++;// increment
         GPSUTILS_DEBUG("GPGSV gsv_sat_idx incremented to %d\n", fsm->_gsv_sat_idx);
     }
+    action xn_pmtkack_command {
+        if (!isnanf(fsm->_tmp_float)) {
+            uint16_t num = ((uint32_t)(fsm->_tmp_float)) & 0x0000FFFF;
+            fsm->_pmtkack_cmd = num;
+        } else {
+            GPSUTILS_DEBUG("PMTK001 command invalid: nan/empty\n");
+        }
+    }
+    action xn_pmtkack_flag {
+        fsm->_pmtkack_flag = fc - '0';
+        GPSUTILS_DEBUG("PMTK001 command %d ACK flag: %d\n", fsm->_pmtkack_cmd,
+                        fsm->_pmtkack_flag);
+    }
 
     action xn_checksum_xdigit {
         if (fc <= '9') {
@@ -533,7 +555,7 @@ struct gpsdata_parser_t {
         UTCDate COMMA .
         optional_number %xn_magvariation COMMA .
         ([EW] | zlen) @xn_magvariation_ew COMMA . # this is for magnetic variation
-        [ADE] @xn_mode_common COMMA ?; #optional comma in case needed
+        [A-Z] @xn_mode_common COMMA ?; #optional comma in case needed
 
     ## course and speed information relative to the ground
     gpvtg = 'GPVTG' @xn_msgid_gpvtg COMMA .
@@ -541,23 +563,33 @@ struct gpsdata_parser_t {
         optional_number %xn_magnetic_heading COMMA 'M' COMMA .
         number %xn_speed_knots COMMA 'N' COMMA .
         number %xn_speed_kmph COMMA 'K' COMMA .
-        [ADE] @xn_mode_common COMMA ?; #optional comma in case needed
+        [A-Z] @xn_mode_common COMMA ?; #optional comma in case needed
+
+    ## GPGLL support is not necessary since GPGGA/GPRMC are enough
+    gpgll = 'GPGLL' @xn_msgid_gpgll COMMA .
+            (Latitude %xn_latitude | zlen) COMMA . ([NS] @xn_latitude_ns | zlen) COMMA .
+            (Longitude %xn_longitude | zlen) COMMA . ([EW] @xn_longitude_ew | zlen) COMMA .
+            UTCTime COMMA .
+            [AV] @xn_status_valid COMMA [A-Z] @xn_mode_common COMMA ?;
 
     ## status of antenna
     pgtop = 'PGTOP' @xn_msgid_pgtop COMMA .
         integer @xn_pgtop_fntype COMMA .
         [1-3] @xn_pgtop_value COMMA ?; #optional comma in case needed
 
-    ## cold start: don't use time, position, almanacs & ephemeris data at re-start
-    pmtk = 'PMTK' @xn_msgid_pmtk '103'; #for cold start
+    # acknowledgements for PMTK commands
+    pmtkack = 'PMTK' @xn_msgid_pmtk '001' COMMA .
+            integer %xn_pmtkack_command COMMA [0-4] @xn_pmtkack_flag COMMA ?;
 
+    message = '$' >xn_clean_state .
+        (gpgga | gpgsa | gpgsv | gprmc | gpvtg | gpgll | pgtop | pmtkack) >xn_checksum_reset $xn_checksum_calculate .
+        '*' xdigit{2} $xn_checksum_xdigit %xn_checksum_verify;
+    ## bad data gets sent due to bad UART parsing
     action xn_fake_msg {
         GPSUTILS_WARN("fake message 0x00 0xFF received, ignoring\n");
     }
-    message = '$' >xn_clean_state .
-        (gpgga | gpgsa | gpgsv | gprmc | gpvtg | pgtop | pmtk) >xn_checksum_reset $xn_checksum_calculate .
-        '*' xdigit{2} $xn_checksum_xdigit %xn_checksum_verify;
     fake_message = 0x00 0xFF %xn_fake_msg;
+
     main := (message %xn_message_save | fake_message | space | empty | 0x00 )* ;# allow nulls
 
 }%%
@@ -586,7 +618,7 @@ static void gpsdata_parser_internal_clean_state(gpsdata_parser_t *fsm)
     fsm->mode2 = GPSDATA_MODE_UNSET;
     fsm->mode_common = GPSDATA_MODE_UNSET;
     fsm->_posfix = GPSDATA_POSFIX_NOFIX;
-    fsm->_rmc_valid = false;
+    fsm->_is_valid = false;
     fsm->_num_sats = 0;
     fsm->_num_msg_max = 0;
     fsm->_num_msg_idx = 0;
@@ -607,6 +639,8 @@ static void gpsdata_parser_internal_clean_state(gpsdata_parser_t *fsm)
     fsm->_magvar_direction = GPSDATA_DIRECTION_UNSET;
     memset(fsm->_gsv_sats, 0, sizeof(fsm->_gsv_sats));
     fsm->_gsv_sat_idx = 0;
+    fsm->_pmtkack_cmd = 0;
+    fsm->_pmtkack_flag = 0;
 }
 
 static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE *fp)
@@ -660,8 +694,8 @@ static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE
                 fprintf(fp, "SNR C/No: %d\n", fsm->_gsv_sats[i].snr_cno);
             }
         }
-        fprintf(fp, "RMC is-valid: %s Speed(knots): %0.04f Course(deg): %0.04f ",
-            (fsm->_rmc_valid ? "true" : "false"), fsm->_speed_knots,
+        fprintf(fp, "RMC/GLL is-valid: %s Speed(knots): %0.04f Course(deg): %0.04f ",
+            (fsm->_is_valid ? "true" : "false"), fsm->_speed_knots,
             fsm->_course_degrees);
         fprintf(fp, "_magvariation: %0.04f degrees %s\n", fsm->_magvar_degrees,
             gpsdata_direction_tostring(fsm->_magvar_direction));
@@ -737,7 +771,7 @@ static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
             memcpy(&(item->latitude), &(fsm->_lat), sizeof(fsm->_lat));
             memcpy(&(item->longitude), &(fsm->_lon), sizeof(fsm->_lon));
             item->mode = fsm->mode_common;
-            if (fsm->_rmc_valid) {
+            if (fsm->_is_valid) {
                 item->speed_knots = fsm->_speed_knots;
                 item->course_degrees = fsm->_course_degrees;
                 if (gpsutils_get_timeval(&(fsm->_tm), fsm->_tm_msec,
@@ -749,6 +783,37 @@ static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
                     item->is_valid_timestamp = true;
                     // update this delta timestamp storage
                     memcpy(&(fsm->rmc_tm), &(fsm->_tm), sizeof(fsm->_tm));
+                }
+            } else {
+                GPSUTILS_WARN("%s message is not valid. Ignoring\n", msgid_str);
+                rc = 1;//ignore
+            }
+            break;
+        case GPSDATA_MSGID_GPGLL:
+            if (fsm->_is_valid) {
+                memcpy(&(item->latitude), &(fsm->_lat), sizeof(fsm->_lat));
+                memcpy(&(item->longitude), &(fsm->_lon), sizeof(fsm->_lon));
+                item->mode = fsm->mode_common;
+                // a valid rmc_tm
+                if (fsm->rmc_tm.tm_year > 0) {
+                    fsm->_tm.tm_year = fsm->rmc_tm.tm_year;
+                    fsm->_tm.tm_mon = fsm->rmc_tm.tm_mon;
+                    fsm->_tm.tm_mday = fsm->rmc_tm.tm_mday;
+                    if (gpsutils_get_timeval(&(fsm->_tm), fsm->_tm_msec,
+                                &(item->timestamp)) < 0) {
+                        GPSUTILS_WARN("Message %s: invalid timestamp conversion\n",
+                                msgid_str);
+                        item->is_valid_timestamp = false;
+                    } else {
+                        item->is_valid_timestamp = true;
+                    }
+                } else {
+                    // we still convert just in case we have knowledge of the date
+                    // external to this library
+                    gpsutils_get_timeval(&(fsm->_tm), fsm->_tm_msec,
+                            &(item->timestamp));
+                    item->is_valid_timestamp = false;
+                    GPSUTILS_WARN("RMC date is unavailable, so timestamp is considered invalid for message %s\n", msgid_str);
                 }
             } else {
                 GPSUTILS_WARN("%s message is not valid. Ignoring\n", msgid_str);
@@ -785,7 +850,8 @@ static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
             }
             break;
         case GPSDATA_MSGID_PMTK:
-            GPSUTILS_DEBUG("Received message ID %s. Ignoring\n", msgid_str);
+            GPSUTILS_DEBUG("Received message ID %s. Command %d Flag %d\n",
+                        msgid_str, fsm->_pmtkack_cmd, fsm->_pmtkack_flag);
             rc = 1;//ignore
             break;
         default:

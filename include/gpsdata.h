@@ -19,6 +19,7 @@ typedef enum {
     GPSDATA_MSGID_GPGSV,
     GPSDATA_MSGID_GPRMC,
     GPSDATA_MSGID_GPVTG,
+    GPSDATA_MSGID_GPGLL,
     GPSDATA_MSGID_PGTOP,
     GPSDATA_MSGID_PMTK
 } gpsdata_msgid_t;
@@ -80,7 +81,7 @@ typedef struct gpsdata_data {
     // if a full timestamp is available this bool will be set to true
     bool is_valid_timestamp;
     struct timeval timestamp;
-    gpsdata_mode_t mode; // set for GPRMC/GPVTG
+    gpsdata_mode_t mode; // set for GPRMC/GPVTG/GPGLL
     gpsdata_posfix_t posfix;
     uint32_t num_satellites;
     // if not available all float values will be NAN
@@ -177,6 +178,13 @@ int gpsdevice_set_speed_threshold(int fd, float speed);
 // return -1 on error and 0 on success
  */
 int gpsdevice_request_firmware_info(int fd);
+
+/* send a custom PMTK message that is not supported by the above API calls.
+ * user must read datasheet before using this directly. all the above API calls
+ * use this function internally. The msg pointer is expected to be a NULL
+ * terminated string.
+ */
+int gpsdevice_send_message(int fd, const char *msg);
 
 EXTERN_C_END
 #endif /* __GPSDATA_H__ */

@@ -17,7 +17,8 @@ void test_parse_pmtk()
 {
     int rc = 0;
     gpsutils_timer_t tt;
-    const char *pmtk = "$PMTK103*30\r\n";
+    const char *pmtk =
+        "$PMTK001,220,3*30\r\n$PMTK001,314,3*36\r\n$PMTK001,103,2*30\r\n";
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", pmtk);
