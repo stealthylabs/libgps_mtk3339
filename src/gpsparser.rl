@@ -285,35 +285,73 @@ struct gpsdata_parser_t {
     }
 
     action xn_hdop {
-        fsm->_hdop = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_hdop = fsm->_tmp_float;
+        } else {
+            fsm->_hdop = NAN;
+            GPSUTILS_DEBUG("HDOP is empty/nan\n");
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_pdop {
-        fsm->_pdop = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_pdop = fsm->_tmp_float;
+        } else {
+            fsm->_pdop = NAN;
+            GPSUTILS_DEBUG("PDOP is empty/nan\n");
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_vdop {
-        fsm->_vdop = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_vdop = fsm->_tmp_float;
+        } else {
+            fsm->_vdop = NAN;
+            GPSUTILS_DEBUG("VDOP is empty/nan\n");
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_altitude {
-        fsm->_altitude = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_altitude = fsm->_tmp_float;
+        } else {
+            fsm->_altitude = NAN;
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_geoidal {
-        fsm->_geoidal = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_geoidal = fsm->_tmp_float;
+        } else {
+            fsm->_geoidal = NAN;
+            GPSUTILS_DEBUG("Geoidal is empty/nan\n");
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_speed_knots {
-        fsm->_speed_knots = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_speed_knots = fsm->_tmp_float;
+        } else {
+            fsm->_speed_knots = NAN;
+            GPSUTILS_DEBUG("Speed (knots) is empty/nan\n");
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_speed_kmph {
-        fsm->_speed_kmph = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_speed_kmph = fsm->_tmp_float;
+        } else {
+            fsm->_speed_kmph = NAN;
+            GPSUTILS_DEBUG("Speed (km/hr) is empty/nan\n");
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_ground_course {
-        fsm->_course_degrees = fsm->_tmp_float;
+        if (!isnanf(fsm->_tmp_float)) {
+            fsm->_course_degrees = fsm->_tmp_float;
+        } else {
+            fsm->_course_degrees = NAN;
+        }
         fsm->_tmp_float = NAN;
     }
     action xn_magnetic_heading {
@@ -511,24 +549,24 @@ struct gpsdata_parser_t {
     ## time, position and fix type data
     gpgga = 'GPGGA' @xn_msgid_gpgga COMMA .
         UTCTime COMMA .
-        Latitude %xn_latitude COMMA .
-        [NS] @xn_latitude_ns COMMA .
-        Longitude %xn_longitude COMMA .
-        [EW] @xn_longitude_ew COMMA .
+        (Latitude %xn_latitude | zlen) COMMA .
+        ([NS] @xn_latitude_ns | zlen) COMMA .
+        (Longitude %xn_longitude | zlen) COMMA .
+        ([EW] @xn_longitude_ew | zlen) COMMA .
         [012] @xn_posfix COMMA .
         (digit{1,2} $xn_num_sats) COMMA .
-        number %xn_hdop COMMA .
-        number %xn_altitude COMMA 'M' COMMA .
-        number %xn_geoidal COMMA 'M' COMMA number? COMMA;
+        optional_number %xn_hdop COMMA .
+        optional_number %xn_altitude COMMA 'M' COMMA .
+        optional_number %xn_geoidal COMMA 'M' COMMA number? COMMA;
 
     ## GPS receiver operating mode, active satellites used in the position
     ## solution and DOP values
     gpgsa = 'GPGSA' @xn_msgid_gpgsa COMMA .
         [MA] @xn_mode1 COMMA [1-3] @xn_mode2 COMMA .
         (optional_integer %xn_satellites_used COMMA){12} .
-        number %xn_pdop COMMA .
-        number %xn_hdop COMMA .
-        number %xn_vdop COMMA?; #no comma here as per datasheet, but let's handle it
+        optional_number %xn_pdop COMMA .
+        optional_number %xn_hdop COMMA .
+        optional_number %xn_vdop COMMA?; #no comma here as per datasheet, but let's handle it
 
     ## the number of GPS satellites in view satellite ID numbers, elevation,
     ## azimuth, and SNR values
@@ -546,12 +584,12 @@ struct gpsdata_parser_t {
     gprmc = 'GPRMC' @xn_msgid_gprmc COMMA .
         UTCTime COMMA .
         [AV] @xn_status_valid COMMA .
-        Latitude %xn_latitude COMMA .
-        [NS] @xn_latitude_ns COMMA .
-        Longitude %xn_longitude COMMA .
-        [EW] @xn_longitude_ew COMMA .
-        number %xn_speed_knots COMMA .
-        number %xn_ground_course COMMA .
+        (Latitude %xn_latitude | zlen) COMMA .
+        ([NS] @xn_latitude_ns | zlen) COMMA .
+        (Longitude %xn_longitude | zlen) COMMA .
+        ([EW] @xn_longitude_ew | zlen) COMMA .
+        optional_number %xn_speed_knots COMMA .
+        optional_number %xn_ground_course COMMA .
         UTCDate COMMA .
         optional_number %xn_magvariation COMMA .
         ([EW] | zlen) @xn_magvariation_ew COMMA . # this is for magnetic variation
@@ -559,10 +597,10 @@ struct gpsdata_parser_t {
 
     ## course and speed information relative to the ground
     gpvtg = 'GPVTG' @xn_msgid_gpvtg COMMA .
-        number %xn_ground_course COMMA 'T' COMMA .
+        optional_number %xn_ground_course COMMA 'T' COMMA .
         optional_number %xn_magnetic_heading COMMA 'M' COMMA .
-        number %xn_speed_knots COMMA 'N' COMMA .
-        number %xn_speed_kmph COMMA 'K' COMMA .
+        optional_number %xn_speed_knots COMMA 'N' COMMA .
+        optional_number %xn_speed_kmph COMMA 'K' COMMA .
         [A-Z] @xn_mode_common COMMA ?; #optional comma in case needed
 
     ## GPGLL support is not necessary since GPGGA/GPRMC are enough
