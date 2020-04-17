@@ -119,6 +119,8 @@ int main(int argc, char **argv)
     if (dev_fd < 0) {
         rc = -1;
     } else {
+        gpsdevice_request_antenna_status(dev_fd, true, false);
+        gpsdevice_request_firmware_info(dev_fd);
         ev_io_init(&device_watcher, device_io_cb, dev_fd, EV_READ);
         //set the data pointer so we can access the parser in the callback
         device_watcher.data = (void *)&mydata;

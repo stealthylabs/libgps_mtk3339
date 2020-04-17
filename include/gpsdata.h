@@ -179,6 +179,15 @@ int gpsdevice_set_speed_threshold(int fd, float speed);
  */
 int gpsdevice_request_firmware_info(int fd);
 
+/*
+ * request antenna status:
+ * if once is true, will request the status at least once.
+ * if periodic_enable is true, will enable the status to be periodic
+ * if periodic_enable is false, will disable periodic antenna status messages.
+ * return -1 on error and 0 on success.
+ */
+int gpsdevice_request_antenna_status(int fd, bool once, bool periodic_enable);
+
 /* send a custom PMTK message that is not supported by the above API calls.
  * user must read datasheet before using this directly. all the above API calls
  * use this function internally. The msg pointer is expected to be a NULL

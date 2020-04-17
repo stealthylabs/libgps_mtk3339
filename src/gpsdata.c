@@ -374,6 +374,22 @@ int gpsdevice_request_firmware_info(int fd)
     return gpsdevice_send_message(fd, msg);
 }
 
+int gpsdevice_request_antenna_status(int fd, bool once, bool periodic_enable)
+{
+    // as per https://forum.trenz-electronic.de/index.php?topic=273.0
+    // we can send this below message to query the antenna status.
+    // this message is also mentioned in the datasheet
+    //"$PGTOP,11,3*6F\r\n";
+    //Adafruit however uses $PGCMD,33,1*6C to enable and $PGCMD,33,0*6D to
+    //disable periodic messages. Both work!
+    if (once) {
+        int rc = gpsdevice_send_message(fd, "$PGTOP,11,3*6F\r\n");
+        if (rc < 0)
+            return rc;
+    }
+    return gpsdevice_send_message(fd, periodic_enable ? "$PGCMD,33,1*6C\r\n" : "$PGCMD,33,0*6D\r\n");
+}
+
 int gpsdevice_set_speed_threshold(int fd, float speed)
 {
     if (fd < 0)
