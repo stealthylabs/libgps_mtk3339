@@ -104,7 +104,7 @@ int main(int argc, char **argv)
             }
         } else {
             char buf[PATH_MAX];
-            for (int i = 1; i < 6; i++) {
+            for (int i = 1; i < 9; i++) {
                 memset(buf, 0, sizeof(buf));
                 snprintf(buf, sizeof(buf) - 1, "sample_gpsdata_usbttl_%d.txt", i);
                 if (access(buf, F_OK | R_OK) != -1) {

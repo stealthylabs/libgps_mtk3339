@@ -96,6 +96,13 @@ struct gpsdata_parser_t {
     // PMTK command specific
     uint16_t _pmtkack_cmd;
     uint8_t _pmtkack_flag;
+
+    // firmware specific
+    bool _pmtkack_firmware;
+#define FSM_FW_BUF_SIZE 256
+    char _fw_buf[FSM_FW_BUF_SIZE];
+    size_t _fw_buf_idx;
+    gpsdata_firmware_t fw;
 };
 
 %%{
@@ -474,6 +481,10 @@ struct gpsdata_parser_t {
         fsm->_gsv_sat_idx++;// increment
         GPSUTILS_DEBUG("GPGSV gsv_sat_idx incremented to %d\n", fsm->_gsv_sat_idx);
     }
+
+    action xn_pmtkack_firmware {
+        fsm->_pmtkack_firmware = true;
+    }
     action xn_pmtkack_command {
         if (!isnanf(fsm->_tmp_float)) {
             uint16_t num = ((uint32_t)(fsm->_tmp_float)) & 0x0000FFFF;
@@ -511,6 +522,66 @@ struct gpsdata_parser_t {
             fsm->save(fsm);
         }
     }
+    ### we store each character in an array since the message could be split up across buffers.
+    ### so the fpc pointer can be on different stacks which cannot be used.
+    action xn_fwstring_start {
+        fsm->_fw_buf_idx = 0;
+        memset(fsm->_fw_buf, 0, FSM_FW_BUF_SIZE);
+    }
+    action xn_fwstring_char {
+        if (fsm->_fw_buf_idx < FSM_FW_BUF_SIZE) {
+            fsm->_fw_buf[fsm->_fw_buf_idx++] = fc;
+        } else {
+            GPSUTILS_WARN("Buffer is only 256 characters for storing firmware, truncating...\n");
+            fsm->_fw_buf[FSM_FW_BUF_SIZE - 1] = '\0';
+            fsm->_fw_buf_idx = FSM_FW_BUF_SIZE;
+        }
+    }
+    action xn_fwstring_end {
+        if (fsm->_fw_buf_idx < FSM_FW_BUF_SIZE) {
+            fsm->_fw_buf[fsm->_fw_buf_idx++] = '\0';
+        } else {
+            GPSUTILS_WARN("Buffer is only 256 characters for storing firmware, truncating...\n");
+            fsm->_fw_buf[FSM_FW_BUF_SIZE - 1] = '\0';
+            fsm->_fw_buf_idx = FSM_FW_BUF_SIZE;
+        }
+    }
+    action xn_firmware {
+        if (fsm->_fw_buf[0] != '\0' && fsm->_fw_buf_idx > 0) {
+            fsm->fw.firmware = strdup(fsm->_fw_buf);
+            if (!(fsm->fw.firmware)) {
+                GPSUTILS_ERROR_NOMEM((strlen(fsm->_fw_buf) + 1) * sizeof(char));
+                fsm->fw.firmware = NULL;
+            }
+        }
+    }
+    action xn_build_id {
+        if (fsm->_fw_buf[0] != '\0' && fsm->_fw_buf_idx > 0) {
+            fsm->fw.build_id = strdup(fsm->_fw_buf);
+            if (!(fsm->fw.build_id)) {
+                GPSUTILS_ERROR_NOMEM((strlen(fsm->_fw_buf) + 1) * sizeof(char));
+                fsm->fw.build_id = NULL;
+            }
+        }
+    }
+    action xn_chip_name {
+        if (fsm->_fw_buf[0] != '\0' && fsm->_fw_buf_idx > 0) {
+            fsm->fw.chip_name = strdup(fsm->_fw_buf);
+            if (!(fsm->fw.chip_name)) {
+                GPSUTILS_ERROR_NOMEM((strlen(fsm->_fw_buf) + 1) * sizeof(char));
+                fsm->fw.chip_name = NULL;
+            }
+        }
+    }
+    action xn_chip_version {
+        if (fsm->_fw_buf[0] != '\0' && fsm->_fw_buf_idx > 0) {
+            fsm->fw.chip_version = strdup(fsm->_fw_buf);
+            if (!(fsm->fw.chip_version)) {
+                GPSUTILS_ERROR_NOMEM((strlen(fsm->_fw_buf) + 1) * sizeof(char));
+                fsm->fw.chip_version = NULL;
+            }
+        }
+    }
 
     COMMA = ',';
     DOT = '.';
@@ -519,10 +590,14 @@ struct gpsdata_parser_t {
     number = real | integer;
     optional_integer = integer | zlen;
     optional_number = number | zlen;
+    noncomma = alnum | '_' | '.' | '-';
+    fwstring = noncomma+ >xn_fwstring_start $xn_fwstring_char %xn_fwstring_end;
 
-    ## we could do this better by using the fpc pointer and subtracting the
+    ## we could NOT do this better by using the fpc pointer and subtracting the
     ## pointer locations, using strtol and converting but maybe it is cheaper to
     ## be dumb and have many actions, might be faster since it is just a table
+    ## the fpc pointer can be on different stacks since the message may be split
+    ## across function calls and so never use fpc
     ##ddmmyy
     UTCDate = digit >xn_tm_Z_dd @xn_tm_1_dd digit @xn_tm_0_dd
               digit >xn_tm_Z_mm @xn_tm_1_mm digit @xn_tm_0_mm %xn_tm_E_mm
@@ -624,17 +699,23 @@ struct gpsdata_parser_t {
         '33' COMMA . [0-1] @xn_pgtop_enabled COMMA ?; #optional comma in case needed
 
     # acknowledgements for PMTK commands
+    firmware = 'PMTK' @xn_msgid_pmtk '705' @xn_pmtkack_firmware COMMA .
+              (fwstring %xn_firmware | zlen) COMMA .
+              (fwstring %xn_build_id | zlen) COMMA .
+              (fwstring %xn_chip_name | zlen) COMMA .
+              (fwstring %xn_chip_version | zlen) COMMA ?;
+                
     pmtkack = 'PMTK' @xn_msgid_pmtk '001' COMMA .
             integer %xn_pmtkack_command COMMA [0-4] @xn_pmtkack_flag COMMA ?;
 
     message = '$' >xn_clean_state .
-        (gpgga | gpgsa | gpgsv | gprmc | gpvtg | gpgll | pgtop | pmtkack | pgack) >xn_checksum_reset $xn_checksum_calculate .
+        (gpgga | gpgsa | gpgsv | gprmc | gpvtg | gpgll | pgtop | firmware | pmtkack | pgack) >xn_checksum_reset $xn_checksum_calculate .
         '*' xdigit{2} $xn_checksum_xdigit %xn_checksum_verify;
     ## bad data gets sent due to bad UART parsing
     action xn_fake_msg {
         GPSUTILS_WARN("fake message 0x00 0xFF received, ignoring\n");
     }
-    fake_message = 0x00 0xFF %xn_fake_msg;
+    fake_message = (0x00 0xFF | '36' space) %xn_fake_msg;
 
     main := (message %xn_message_save | fake_message | space | empty | 0x00 )* ;# allow nulls
 
@@ -688,6 +769,9 @@ static void gpsdata_parser_internal_clean_state(gpsdata_parser_t *fsm)
     fsm->_gsv_sat_idx = 0;
     fsm->_pmtkack_cmd = 0;
     fsm->_pmtkack_flag = 0;
+    fsm->_pmtkack_firmware = false;
+    memset(fsm->_fw_buf, 0, FSM_FW_BUF_SIZE);
+    fsm->_fw_buf_idx = 0;
 }
 
 static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE *fp)
@@ -752,6 +836,10 @@ static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE
             fsm->_pgtop_fntype, fsm->_pgtop_value,
             fsm->_pgtop_enabled ? "true" : "false");
         fprintf(fp, "_checksum: %02x (%d)\n", fsm->_checksum, fsm->_checksum);
+        if (fsm->fw.firmware) {
+            fprintf(fp, "FIRMWARE: %s BUILD_ID: %s CHIP_NAME: %s CHIP_VERSION: %s\n",
+            fsm->fw.firmware, fsm->fw.build_id, fsm->fw.chip_name, fsm->fw.chip_version);
+        }
     }
 }
 
@@ -899,8 +987,13 @@ static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
             }
             break;
         case GPSDATA_MSGID_PMTK:
-            GPSUTILS_DEBUG("Received message ID %s. Command %d Flag %d\n",
+            if (fsm->_pmtkack_firmware) {
+                GPSUTILS_DEBUG("Received message ID %s. FIRMWARE: %s BUILD_ID: %s CHIP_NAME: %s CHIP_VERSION: %s\n",
+                msgid_str, fsm->fw.firmware, fsm->fw.build_id, fsm->fw.chip_name, fsm->fw.chip_version);
+            } else {
+                GPSUTILS_DEBUG("Received message ID %s. Command %d Flag %d\n",
                         msgid_str, fsm->_pmtkack_cmd, fsm->_pmtkack_flag);
+            }
             rc = 1;//ignore
             break;
         default:
@@ -929,6 +1022,10 @@ static void gpsdata_parser_internal_init(gpsdata_parser_t *fsm)
         fsm->cs = 0;
         fsm->items = NULL;
         memset(&(fsm->rmc_tm), 0, sizeof(fsm->rmc_tm));
+        GPSUTILS_FREE(fsm->fw.firmware);
+        GPSUTILS_FREE(fsm->fw.build_id);
+        GPSUTILS_FREE(fsm->fw.chip_name);
+        GPSUTILS_FREE(fsm->fw.chip_version);
         if (fsm->clean_state)
             fsm->clean_state(fsm);
         %% write init;
@@ -939,6 +1036,7 @@ static void gpsdata_parser_internal_fini(gpsdata_parser_t *fsm)
 {
     if (fsm && fsm->items) {
         gpsdata_list_free(&(fsm->items));
+        fsm->items = NULL;
     }
 }
 
@@ -948,10 +1046,7 @@ static void gpsdata_parser_internal_reset(gpsdata_parser_t *fsm)
         if (fsm->cs == %%{ write error; }%%) {
             fsm->cs = %%{write start; }%%;
         }
-        if (fsm->items) {
-            gpsdata_list_free(&(fsm->items));
-            fsm->items = NULL;
-        }
+        gpsdata_parser_internal_fini(fsm);
         memset(&(fsm->rmc_tm), 0, sizeof(fsm->rmc_tm));
     }
 }
@@ -1027,6 +1122,10 @@ void gpsdata_parser_free(gpsdata_parser_t *fsm)
     if (fsm) {
         if (fsm->fini)
             fsm->fini(fsm);
+        GPSUTILS_FREE(fsm->fw.firmware);
+        GPSUTILS_FREE(fsm->fw.build_id);
+        GPSUTILS_FREE(fsm->fw.chip_name);
+        GPSUTILS_FREE(fsm->fw.chip_version);
         GPSUTILS_FREE(fsm);
     }
 }
@@ -1077,5 +1176,15 @@ int gpsdata_parser_parse(gpsdata_parser_t *fsm,
             *onum = 0;
     }
     return rc;
+}
+
+const gpsdata_firmware_t *gpsdevice_get_firmware_info(const gpsdata_parser_t *fsm)
+{
+    if (fsm && fsm->fw.firmware) {
+        GPSUTILS_INFO("FIRMWARE: %s BUILD_ID: %s CHIP_NAME: %s CHIP_VERSION: %s\n",
+                fsm->fw.firmware, fsm->fw.build_id, fsm->fw.chip_name, fsm->fw.chip_version);
+        return &(fsm->fw);
+    }
+    return NULL;
 }
 

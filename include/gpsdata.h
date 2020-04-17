@@ -74,6 +74,13 @@ typedef struct {
     float minutes;
 } gpsdata_latlon_t;
 
+typedef struct {
+    char *firmware;
+    char *build_id;
+    char *chip_name;
+    char *chip_version;
+} gpsdata_firmware_t;
+
 typedef struct gpsdata_data {
     gpsdata_msgid_t msgid;      // the message ID this update is from
     gpsdata_latlon_t latitude;
@@ -92,7 +99,6 @@ typedef struct gpsdata_data {
     float heading_degrees;
     // antenna status
     gpsdata_antenna_t antenna_status;
-    char *firmware_info;
     /* make this a linked list using utlist.h or gps_utlist.h in
      * our case to make sure we get expected behavior */
     struct gpsdata_data *next;    
@@ -173,11 +179,17 @@ int gpsdevice_set_enabled(int fd, bool is_gpvtg, bool is_gpgsa, bool is_gpgsv);
  * return -1 on error and 0 on success
  */
 int gpsdevice_set_speed_threshold(int fd, float speed);
-/* request firmware info of the chip. reads the firmware info and fills the
- * gpsdata_data_t firmware_info pointer when the data is received.
-// return -1 on error and 0 on success
+/* request firmware info of the chip.
+ * the firmware information is sent back and stored in the parser object.
+ * the user can use the gpsdevice_get_firmware_info function to retrieve a
+ * pointer to that firmware info. return -1 on error and 0 on success
  */
 int gpsdevice_request_firmware_info(int fd);
+/*
+ * returns the stored firware info, if any. if there is info it is returned,
+ * otherwise returns NULL
+ */
+const gpsdata_firmware_t *gpsdevice_get_firmware_info(const gpsdata_parser_t *parser);
 
 /*
  * request antenna status:

@@ -80,6 +80,23 @@ void timeout_cb(EV_P_ ev_timer *w, int revents)
     ev_break(EV_A_ EVBREAK_ALL);// stop all loops
 }
 
+void firmware_cb(EV_P_ ev_timer *w, int revents)
+{
+    const mygps_t *mydata = (const mygps_t *)(w->data);
+    if (!mydata || !mydata->parser) {
+        GPSUTILS_ERROR("Invalid parser pointer. closing I/O\n");
+        ev_break(EV_A_ EVBREAK_ALL);// stop all loops
+    } else {
+        const gpsdata_firmware_t *fw = gpsdevice_get_firmware_info(mydata->parser);
+        if (fw) {
+            GPSUTILS_INFO("Received firmware info: %s build ID %s chip name %s chip version %s\n",
+                    fw->firmware, fw->build_id, fw->chip_name, fw->chip_version);
+        } else {
+            GPSUTILS_WARN("No firmware retrieved yet\n");
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
 #ifndef NDEBUG
@@ -107,6 +124,7 @@ int main(int argc, char **argv)
 
     ev_io device_watcher = { 0 };
     ev_timer timeout_watcher = { 0 };
+    ev_timer firmware_watcher = { 0 };
     // use the default event loop
     struct ev_loop *loop = EV_DEFAULT;
     const char *dev = "/dev/ttyUSB0";
@@ -125,6 +143,12 @@ int main(int argc, char **argv)
         //set the data pointer so we can access the parser in the callback
         device_watcher.data = (void *)&mydata;
         ev_io_start(loop, &device_watcher);
+
+        // dump firmware
+        ev_timer_init(&firmware_watcher, firmware_cb, 5 /* seconds */, 0.);
+        //set the data pointer so we can access the parser in the callback
+        firmware_watcher.data = (void *)&mydata;
+        ev_timer_start(loop, &firmware_watcher);
 
         const char *no_timeout = getenv("NO_TIMEOUT");
         if (no_timeout) {
