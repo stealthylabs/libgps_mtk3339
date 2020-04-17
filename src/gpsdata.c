@@ -177,21 +177,21 @@ void gpsdata_dump(const gpsdata_data_t *o, FILE *fp)
             fprintf(fp, "%s mode: %s\n", msgid_str, gpsdata_mode_tostring(o->mode));
         }
         if (o->msgid == GPSDATA_MSGID_GPGGA) {
-            fprintf(fp, "posfix: %s num_satellites: %d antenna altitude(m): %0.04f\n",
+            fprintf(fp, "posfix: %s num_satellites: %d antenna altitude: %0.04fm\n",
                     gpsdata_posfix_tostring(o->posfix), o->num_satellites,
                     o->altitude_meters);
         }
         if (!isnan(o->speed_kmph)) {
-            fprintf(fp, "speed (km/hr): %0.04f\n", o->speed_kmph);
+            fprintf(fp, "speed: %0.04f km/hr\n", o->speed_kmph);
         }
         if (!isnan(o->speed_knots)) {
-            fprintf(fp, "speed (knots): %0.04f\n", o->speed_knots);
+            fprintf(fp, "speed: %0.04f knots\n", o->speed_knots);
         }
         if (!isnan(o->course_degrees)) {
-            fprintf(fp, "course (degrees): %0.04f\n", o->course_degrees);
+            fprintf(fp, "course: %0.04f°\n", o->course_degrees);
         }
         if (!isnan(o->heading_degrees)) {
-            fprintf(fp, "magnetic heading(degrees): %0.04f\n",
+            fprintf(fp, "magnetic heading: %0.04f°\n",
                     o->heading_degrees);
         }
         if (o->antenna_status != GPSDATA_ANTENNA_UNSET) {
