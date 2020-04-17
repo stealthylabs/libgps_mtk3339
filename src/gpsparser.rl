@@ -63,8 +63,9 @@ struct gpsdata_parser_t {
     uint8_t _num_msg_max;//values 1-3 as per datasheet, but sometimes 4 show up so 1-9
     uint8_t _num_msg_idx;//values 1-9 as it is 1-based indexing
     bool _is_valid; // used by GPRMC/GPGLL
-    uint8_t _pgtop_fntype;// is this always 11 ?
+    uint8_t _pgtop_fntype;// this may always be 11
     uint8_t _pgtop_value;// values 1-3
+    bool _pgtop_enabled;
 
     uint16_t _satellites_used[12];
     uint8_t  _satellites_used_idx;
@@ -251,6 +252,10 @@ struct gpsdata_parser_t {
         if (!(fsm->_pgtop_value >= 1 && fsm->_pgtop_value <= 3)) {
             GPSUTILS_ERROR("PGTOP value should be in [1,3]. We have: %d", fsm->_pgtop_value);
         }
+    }
+    action xn_pgtop_enabled {
+        fsm->_pgtop_enabled = (fc == '1') ? true : false;
+        GPSUTILS_INFO("PGTOP messages enabled: %s\n", fsm->_pgtop_enabled ? "true": "false");
     }
 
     action xn_num_sats {
@@ -614,13 +619,16 @@ struct gpsdata_parser_t {
     pgtop = 'PGTOP' @xn_msgid_pgtop COMMA .
         integer @xn_pgtop_fntype COMMA .
         [1-3] @xn_pgtop_value COMMA ?; #optional comma in case needed
+    ## acknowledgement of the PGCMD command for antenna status
+    pgack = 'PGACK' @xn_msgid_pgtop COMMA .
+        '33' COMMA . [0-1] @xn_pgtop_enabled COMMA ?; #optional comma in case needed
 
     # acknowledgements for PMTK commands
     pmtkack = 'PMTK' @xn_msgid_pmtk '001' COMMA .
             integer %xn_pmtkack_command COMMA [0-4] @xn_pmtkack_flag COMMA ?;
 
     message = '$' >xn_clean_state .
-        (gpgga | gpgsa | gpgsv | gprmc | gpvtg | gpgll | pgtop | pmtkack) >xn_checksum_reset $xn_checksum_calculate .
+        (gpgga | gpgsa | gpgsv | gprmc | gpvtg | gpgll | pgtop | pmtkack | pgack) >xn_checksum_reset $xn_checksum_calculate .
         '*' xdigit{2} $xn_checksum_xdigit %xn_checksum_verify;
     ## bad data gets sent due to bad UART parsing
     action xn_fake_msg {
@@ -662,6 +670,7 @@ static void gpsdata_parser_internal_clean_state(gpsdata_parser_t *fsm)
     fsm->_num_msg_idx = 0;
     fsm->_pgtop_fntype = 0;
     fsm->_pgtop_value = 0;
+    fsm->_pgtop_enabled = false;
     memset(fsm->_satellites_used, 0, sizeof(fsm->_satellites_used));
     fsm->_satellites_used_idx = 0;
     fsm->_hdop = NAN;
@@ -739,8 +748,9 @@ static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE
             gpsdata_direction_tostring(fsm->_magvar_direction));
         fprintf(fp, "VTG Speed(kmph): %0.04f Magnetic Heading: %0.04f \n",
             fsm->_speed_kmph, fsm->_heading_degrees);
-        fprintf(fp, "PGTOP Fntype: %d Value: %d\n",
-            fsm->_pgtop_fntype, fsm->_pgtop_value);
+        fprintf(fp, "PGTOP Fntype: %d Value: %d Enabled: %s\n",
+            fsm->_pgtop_fntype, fsm->_pgtop_value,
+            fsm->_pgtop_enabled ? "true" : "false");
         fprintf(fp, "_checksum: %02x (%d)\n", fsm->_checksum, fsm->_checksum);
     }
 }
@@ -866,8 +876,9 @@ static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
             item->speed_kmph = fsm->_speed_kmph;
             break;
         case GPSDATA_MSGID_PGTOP:
-            GPSUTILS_DEBUG("Received message ID %s. Antenna state: %d CommandID: %d\n",
-                msgid_str, fsm->_pgtop_value, fsm->_pgtop_fntype);
+            GPSUTILS_DEBUG("Received message ID %s. Antenna state: %d CommandID: %d Enabled: %s\n",
+                msgid_str, fsm->_pgtop_value, fsm->_pgtop_fntype,
+                fsm->_pgtop_enabled ? "true" : "false");
             if (fsm->_pgtop_fntype == 11) {
                 item->msgid = fsm->_msgid;
                 switch (fsm->_pgtop_value) {

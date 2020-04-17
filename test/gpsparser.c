@@ -50,7 +50,7 @@ void test_parse_pgtop()
 {
     int rc = 0;
     gpsutils_timer_t tt;
-    const char *pgtop = "$PGTOP,11,3*6F\r\n";
+    const char *pgtop = "$PGTOP,11,3*6F\r\n$PGACK,33,0*6E\r\n$PGACK,33,1*6F\r\n";
     gpsdata_parser_t *fsm = gpsdata_parser_create();
     CU_ASSERT_PTR_NOT_NULL(fsm);
     GPSUTILS_INFO("\n\nInput buffer: %s\n\n", pgtop);
