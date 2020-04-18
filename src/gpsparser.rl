@@ -232,6 +232,8 @@ struct gpsdata_parser_t {
             fsm->mode_common = GPSDATA_MODE_DIFFERENTIAL;
         } else if (fc == 'E') {
             fsm->mode_common = GPSDATA_MODE_ESTIMATED;
+        } else if (fc == 'N') {
+            fsm->mode_common = GPSDATA_MODE2_NOFIX;
         } else {
             fsm->mode_common = GPSDATA_MODE_UNSET;
             GPSUTILS_WARN("Received invalid mode %c. Ignoring\n", fc);
@@ -1072,7 +1074,7 @@ static int gpsdata_parser_internal_execute(gpsdata_parser_t *fsm, const char *by
             if (bytes[i] == '$') {
                 fsm->p = &bytes[i];
                 fsm->pe = bytes + len;
-                GPSUTILS_NONE("found message at index %zu\n", i);
+                GPSUTILS_DEBUG("found message at index %zu\n", i);
                 found = true;
                 break;
             }

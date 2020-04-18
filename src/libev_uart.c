@@ -58,7 +58,9 @@ void device_io_cb(EV_P_ ev_io *w, int revents)
                         gpsutils_hex_dump(buf, (size_t)nb, GPSUTILS_LOG_PTR);
                         gpsdata_parser_reset(mydata->parser);
                     } else {
-                        GPSUTILS_INFO("Parsed %zu packets\n", onum);
+                        if (onum) {
+                            GPSUTILS_INFO("Parsed %zu packets\n", onum);
+                        }
                         gpsdata_list_dump(mydata->datalistp, GPSUTILS_LOG_PTR);
                         // do more things here like add the data to a database
                         // free list here to save memory growth
