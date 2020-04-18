@@ -210,18 +210,18 @@ struct gpsdata_parser_t {
     }
     action xn_mode1 {
         if (fc == 'M') {
-            fsm->mode1 = GPSDATA_MODE1_MANUAL;
+            fsm->mode1 = GPSDATA_MODE_MANUAL;
         } else if (fc == 'A') {
-            fsm->mode1 = GPSDATA_MODE1_AUTOMATIC;
+            fsm->mode1 = GPSDATA_MODE_AUTOMATIC;
         }
     }
     action xn_mode2 {
         if (fc == '1') {
-            fsm->mode2 = GPSDATA_MODE2_NOFIX;
+            fsm->mode2 = GPSDATA_MODE_NOFIX;
         } else if (fc == '2') {
-            fsm->mode2 = GPSDATA_MODE2_2DFIX;
+            fsm->mode2 = GPSDATA_MODE_2DFIX;
         } else if (fc == '3') {
-            fsm->mode2 = GPSDATA_MODE2_3DFIX;
+            fsm->mode2 = GPSDATA_MODE_3DFIX;
         }
     }
 
@@ -233,7 +233,7 @@ struct gpsdata_parser_t {
         } else if (fc == 'E') {
             fsm->mode_common = GPSDATA_MODE_ESTIMATED;
         } else if (fc == 'N') {
-            fsm->mode_common = GPSDATA_MODE2_NOFIX;
+            fsm->mode_common = GPSDATA_MODE_NOFIX;
         } else {
             fsm->mode_common = GPSDATA_MODE_UNSET;
             GPSUTILS_WARN("Received invalid mode %c. Ignoring\n", fc);

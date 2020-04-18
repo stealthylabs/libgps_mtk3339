@@ -69,11 +69,11 @@ const char *gpsdata_posfix_tostring(gpsdata_posfix_t p)
 const char *gpsdata_mode_tostring(gpsdata_mode_t m)
 {
     switch (m) {
-    case GPSDATA_MODE1_MANUAL: return "MANUAL";
-    case GPSDATA_MODE1_AUTOMATIC: return "AUTOMATIC";
-    case GPSDATA_MODE2_NOFIX: return "NOFIX";
-    case GPSDATA_MODE2_2DFIX: return "2DFIX";
-    case GPSDATA_MODE2_3DFIX: return "3DFIX";
+    case GPSDATA_MODE_MANUAL: return "MANUAL";
+    case GPSDATA_MODE_AUTOMATIC: return "AUTOMATIC";
+    case GPSDATA_MODE_NOFIX: return "NOFIX";
+    case GPSDATA_MODE_2DFIX: return "2DFIX";
+    case GPSDATA_MODE_3DFIX: return "3DFIX";
     case GPSDATA_MODE_AUTONOMOUS: return "AUTONOMOUS";
     case GPSDATA_MODE_DIFFERENTIAL: return "DIFFERENTIAL";
     case GPSDATA_MODE_ESTIMATED: return "ESTIMATED";
