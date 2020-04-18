@@ -102,6 +102,12 @@ void gpsdata_list_free(gpsdata_data_t **listp)
         gpsdata_data_t *tmp = NULL;
         LL_FOREACH_SAFE(*listp, item, tmp) {
             LL_DELETE(*listp, item);
+            if (item) {
+                GPSUTILS_FREE(item->fwinfo.firmware);
+                GPSUTILS_FREE(item->fwinfo.build_id);
+                GPSUTILS_FREE(item->fwinfo.chip_name);
+                GPSUTILS_FREE(item->fwinfo.chip_version);
+            }
             GPSUTILS_FREE(item);
         }
     }
@@ -149,6 +155,10 @@ void gpsdata_initialize(gpsdata_data_t *o)
         o->course_degrees = NAN;
         o->heading_degrees = NAN;
         o->antenna_status = GPSDATA_ANTENNA_UNSET;
+        o->fwinfo.firmware = NULL;
+        o->fwinfo.build_id = NULL;
+        o->fwinfo.chip_name = NULL;
+        o->fwinfo.chip_version = NULL;
         o->next = NULL;
     }
 }
@@ -197,6 +207,11 @@ void gpsdata_dump(const gpsdata_data_t *o, FILE *fp)
         if (o->antenna_status != GPSDATA_ANTENNA_UNSET) {
             fprintf(fp, "antenna status: %s\n",
                     gpsdata_antenna_tostring(o->antenna_status));
+        }
+        if (o->msgid == GPSDATA_MSGID_PMTK && o->fwinfo.firmware != NULL) {
+            fprintf(fp, "Firmware: %s Build ID: %s Chip Name: %s Version: %s\n",
+                    o->fwinfo.firmware, o->fwinfo.build_id, o->fwinfo.chip_name,
+                    o->fwinfo.chip_version);
         }
         if (o->next) {
             fprintf(fp, "next pointer in linkedin list: %p\n", (const void *)o->next);

@@ -99,6 +99,9 @@ typedef struct gpsdata_data {
     float heading_degrees;
     // antenna status
     gpsdata_antenna_t antenna_status;
+    // firmware object. if the user requests firmware this will be filled up and
+    // the msgid will be GPSDATA_MSGID_PMTK
+    gpsdata_firmware_t fwinfo;
     /* make this a linked list using utlist.h or gps_utlist.h in
      * our case to make sure we get expected behavior */
     struct gpsdata_data *next;    
@@ -180,16 +183,13 @@ int gpsdevice_set_enabled(int fd, bool is_gpvtg, bool is_gpgsa, bool is_gpgsv);
  */
 int gpsdevice_set_speed_threshold(int fd, float speed);
 /* request firmware info of the chip.
- * the firmware information is sent back and stored in the parser object.
- * the user can use the gpsdevice_get_firmware_info function to retrieve a
- * pointer to that firmware info. return -1 on error and 0 on success
+ * the firmware information is sent back and retrieved in the gpsdata_data_t object
+ * when the parsing has completed. The user must check for the
+ * GPSDATA_MSGID_PMTK msgid and the fact that the fwinfo.firmware pointer is not
+ * null to make sure that the firmware has been populated.
+ * return -1 on error and 0 on success if the message was sent to the GPS chip
  */
 int gpsdevice_request_firmware_info(int fd);
-/*
- * returns the stored firware info, if any. if there is info it is returned,
- * otherwise returns NULL
- */
-const gpsdata_firmware_t *gpsdevice_get_firmware_info(const gpsdata_parser_t *parser);
 
 /*
  * request antenna status:

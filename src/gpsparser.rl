@@ -836,7 +836,7 @@ static void gpsdata_parser_internal_dump_state(const gpsdata_parser_t *fsm, FILE
             fsm->_pgtop_fntype, fsm->_pgtop_value,
             fsm->_pgtop_enabled ? "true" : "false");
         fprintf(fp, "_checksum: %02x (%d)\n", fsm->_checksum, fsm->_checksum);
-        if (fsm->fw.firmware) {
+        if (fsm->_pmtkack_firmware && fsm->fw.firmware) {
             fprintf(fp, "FIRMWARE: %s BUILD_ID: %s CHIP_NAME: %s CHIP_VERSION: %s\n",
             fsm->fw.firmware, fsm->fw.build_id, fsm->fw.chip_name, fsm->fw.chip_version);
         }
@@ -990,11 +990,17 @@ static int gpsdata_parser_internal_save(gpsdata_parser_t *fsm)
             if (fsm->_pmtkack_firmware) {
                 GPSUTILS_DEBUG("Received message ID %s. FIRMWARE: %s BUILD_ID: %s CHIP_NAME: %s CHIP_VERSION: %s\n",
                 msgid_str, fsm->fw.firmware, fsm->fw.build_id, fsm->fw.chip_name, fsm->fw.chip_version);
+                // save the firmware into the item and set the fsm->fw to NULL
+                // since we do not need to store it, and can just move the
+                // memory to the object being returned.
+                memcpy(&(item->fwinfo), &(fsm->fw), sizeof(fsm->fw));
+                memset(&(fsm->fw), 0, sizeof(fsm->fw));
+                rc = 0;
             } else {
                 GPSUTILS_DEBUG("Received message ID %s. Command %d Flag %d\n",
                         msgid_str, fsm->_pmtkack_cmd, fsm->_pmtkack_flag);
+                rc = 1;//ignore
             }
-            rc = 1;//ignore
             break;
         default:
             item->msgid = GPSDATA_MSGID_UNSET;
@@ -1026,6 +1032,7 @@ static void gpsdata_parser_internal_init(gpsdata_parser_t *fsm)
         GPSUTILS_FREE(fsm->fw.build_id);
         GPSUTILS_FREE(fsm->fw.chip_name);
         GPSUTILS_FREE(fsm->fw.chip_version);
+        memset(&(fsm->fw), 0, sizeof(fsm->fw));
         if (fsm->clean_state)
             fsm->clean_state(fsm);
         %% write init;
@@ -1177,14 +1184,3 @@ int gpsdata_parser_parse(gpsdata_parser_t *fsm,
     }
     return rc;
 }
-
-const gpsdata_firmware_t *gpsdevice_get_firmware_info(const gpsdata_parser_t *fsm)
-{
-    if (fsm && fsm->fw.firmware) {
-        GPSUTILS_INFO("FIRMWARE: %s BUILD_ID: %s CHIP_NAME: %s CHIP_VERSION: %s\n",
-                fsm->fw.firmware, fsm->fw.build_id, fsm->fw.chip_name, fsm->fw.chip_version);
-        return &(fsm->fw);
-    }
-    return NULL;
-}
-
