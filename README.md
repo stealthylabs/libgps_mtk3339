@@ -32,7 +32,8 @@ the GPS reading or adjustments using events and keeping the power consumption lo
 ```bash
 $ git submodule init
 $ git submodule update
-$ sudo apt-get -y install ragel libev-dev
+$ sudo apt-get -y install ragel libev-dev build-essential \
+        autoconf automake autotools-dev libtool
 $ ./autogen.sh
 $ ./configure
 $ make
