@@ -1,5 +1,8 @@
 # libgps\_mtk3339
 
+Our latest blog posts on this library can be found at
+<https://stealthy.io/blog/category/globaltop-mtk3339/index.html>.
+
 ## INTRODUCTION
 
 This is a C library to perform GPS data parsing for the [Adafruit Ultimate GPS
