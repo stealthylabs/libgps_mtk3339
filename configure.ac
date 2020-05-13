@@ -9,6 +9,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([libgps_mtk3339], [0.2], [github@stealthylabs.com])
+AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/gpsdata.c])
 AM_CONFIG_HEADER(include/gpsconfig.h)
