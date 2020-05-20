@@ -5,10 +5,10 @@
  * MODIFIED SOFTWARE: libgps_mtk3339
  */
 #include <gpsdata.h>
-#ifdef HAVE_FCNTL_H
+#ifdef LIBGPS_MTK3339_HAVE_FCNTL_H
     #include <fcntl.h>
 #endif
-#ifdef HAVE_CUNIT
+#ifdef LIBGPS_MTK3339_HAVE_CUNIT
     #include <CUnit/CUnit.h>
     #include <CUnit/Basic.h>
 #endif

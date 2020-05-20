@@ -1,15 +1,15 @@
 #include <gpsconfig.h>
 #include <gpsdata.h>
-#ifdef HAVE_ERRNO_H
+#ifdef LIBGPS_MTK3339_LIBGPS_MTK3339_HAVE_ERRNO_H
     #include <errno.h>
 #endif
-#ifdef HAVE_STDIO_H
+#ifdef LIBGPS_MTK3339_HAVE_STDIO_H
     #include <stdio.h>
 #endif
-#ifdef HAVE_FCNTL_H
+#ifdef LIBGPS_MTK3339_HAVE_FCNTL_H
     #include <fcntl.h>
 #endif
-#ifdef HAVE_EV_H
+#ifdef LIBGPS_MTK3339_HAVE_EV_H
     #include <ev.h>
 #endif
 

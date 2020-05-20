@@ -1,5 +1,6 @@
 #!/bin/bash
 PREFIX=/tmp/test_install
+rm -rf $PREFIX
 ./autogen.sh || exit 1
 ./configure --prefix=$PREFIX || exit 1
 make install PREFIX=$PREFIX || exit 1
@@ -19,6 +20,7 @@ EOF
     echo
     echo "Compiling code"
     echo
+    mkdir -p ./bin
     gcc -o ./bin/libgps_check.out -I ./include -I ./src \
         ./src/libgps_check.c \
         -L ./lib -lgps_mtk3339 -Wl,-rpath $PREFIX/lib || exit 1

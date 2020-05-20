@@ -5,7 +5,7 @@
  * MODIFIED SOFTWARE: libgps_mtk3339
  */
 #include <gpsutils.h>
-#ifdef HAVE_CUNIT
+#ifdef LIBGPS_MTK3339_HAVE_CUNIT
     #include <CUnit/CUnit.h>
     #include <CUnit/Basic.h>
 #endif

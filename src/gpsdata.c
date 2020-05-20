@@ -4,19 +4,19 @@
  * Software: libgps_mtk3339
  */
 #include <gpsdata.h>
-#ifdef HAVE_ERRNO_H
+#ifdef LIBGPS_MTK3339_HAVE_ERRNO_H
     #include <errno.h>
 #endif
-#ifdef HAVE_STDIO_H
+#ifdef LIBGPS_MTK3339_HAVE_STDIO_H
     #include <stdio.h>
 #endif
-#ifdef HAVE_FCNTL_H
+#ifdef LIBGPS_MTK3339_HAVE_FCNTL_H
     #include <fcntl.h>
 #endif
-#ifdef HAVE_TERMIOS_H
+#ifdef LIBGPS_MTK3339_HAVE_TERMIOS_H
     #include <termios.h>
 #endif
-#ifdef HAVE_DECL_STRERROR_R
+#ifdef LIBGPS_MTK3339_HAVE_DECL_STRERROR_R
 // do nothing
 #else
 #warning "strerror_r is reentrant. strerror is not, so removing usage of strerror_r"

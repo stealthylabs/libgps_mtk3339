@@ -6,7 +6,7 @@
  */
 #include <gpsconfig.h>
 #include <gpsutils.h>
-#ifdef HAVE_ERRNO_H
+#ifdef LIBGPS_MTK3339_HAVE_ERRNO_H
     #include <errno.h>
 #endif
 
@@ -14,7 +14,7 @@ volatile int gpsutils_loglevel = GPSUTILS_LOGLEVEL_INFO;
 
 static time_t gpsutils_timegm(struct tm *_tm)
 {
-#ifdef HAVE_TIMEGM
+#ifdef LIBGPS_MTK3339_HAVE_TIMEGM
     return timegm(_tm);
 #else
 #warning "Using mktime() instead of timegm() and it is non-reentrant"

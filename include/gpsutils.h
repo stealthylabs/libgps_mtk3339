@@ -8,47 +8,47 @@
 #define __GPSUTILS_UTILS_H__
 
 #include <gpsconfig.h>
-#ifdef HAVE_FEATURES_H
+#ifdef LIBGPS_MTK3339_HAVE_FEATURES_H
     #include <features.h>
 #endif 
-#ifdef HAVE_ERRNO_H
+#ifdef LIBGPS_MTK3339_HAVE_ERRNO_H
     #include <errno.h>
 #endif
-#ifdef HAVE_INTTYPES_H
+#ifdef LIBGPS_MTK3339_HAVE_INTTYPES_H
     #include <inttypes.h>
 #endif
-#ifdef HAVE_STDINT_H
+#ifdef LIBGPS_MTK3339_HAVE_STDINT_H
     #include <stdint.h>
 #endif
-#ifdef HAVE_LIMITS_H
+#ifdef LIBGPS_MTK3339_HAVE_LIMITS_H
     #include <limits.h>
 #endif
-#ifdef HAVE_STDIO_H
+#ifdef LIBGPS_MTK3339_HAVE_STDIO_H
     #include <stdio.h>
 #endif
-#ifdef HAVE_STDBOOL_H
+#ifdef LIBGPS_MTK3339_HAVE_STDBOOL_H
 #include <stdbool.h>
 #endif
-#ifdef HAVE_UNISTD_H
+#ifdef LIBGPS_MTK3339_HAVE_UNISTD_H
     #include <unistd.h>
 #endif
-#ifdef HAVE_CTYPE_H
+#ifdef LIBGPS_MTK3339_HAVE_CTYPE_H
     #include <ctype.h>
 #endif
-#ifdef HAVE_STRING_H
+#ifdef LIBGPS_MTK3339_HAVE_STRING_H
     #include <string.h>
 #endif
-#ifdef HAVE_STDLIB_H
+#ifdef LIBGPS_MTK3339_HAVE_STDLIB_H
     #include <stdlib.h>
 #endif
-#ifdef HAVE_MATH_H
+#ifdef LIBGPS_MTK3339_HAVE_MATH_H
     #include <math.h>
 #endif
-#ifdef TIME_WITH_SYS_TIME
+#ifdef LIBGPS_MTK3339_TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# ifdef HAVE_SYS_TIME_H
+# ifdef LIBGPS_MTK3339_HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>

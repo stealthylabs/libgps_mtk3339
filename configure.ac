@@ -12,8 +12,9 @@ AC_INIT([libgps_mtk3339], [0.2], [github@stealthylabs.com])
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/gpsdata.c])
-AM_CONFIG_HEADER(include/gpsconfig.h)
+AM_CONFIG_HEADER(include/_gpsconfig.h)
 AC_CONFIG_MACRO_DIRS([m4])
+AX_PREFIX_CONFIG_H(include/gpsconfig.h)
 
 # Checks for programs.
 ## store user given CFLAGS

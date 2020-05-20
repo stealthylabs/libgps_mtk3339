@@ -9,11 +9,11 @@
 #include <gpsconfig.h>
 #include <gpsutils.h>
 #include <gpsdata.h>
-#ifdef TIME_WITH_SYS_TIME
+#ifdef LIBGPS_MTK3339_TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# ifdef HAVE_SYS_TIME_H
+# ifdef LIBGPS_MTK3339_HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
