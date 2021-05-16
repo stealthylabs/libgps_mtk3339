@@ -71,6 +71,21 @@ Linux but not on other operating systems. The examples will exit after 10
 seconds of receiving data. You can change that by editing the timeout in the
 example code.
 
+If you are directly connecting the GPS module to the GPIO pins on a Raspberry Pi
+like device, you may have to use a different device path such as `/dev/serial0`
+or `/dev/ttyS0` instead.
+
+```bash
+$ ./src/libev_gps_uart /dev/serial0
+```
+
+### NO FIX ISSUES
+
+Sometimes the GPS module takes over 5 minutes to get a fix. In our case, we have
+had to use an extended antenna near the window to get a quicker fix. Once you
+get the fix, it works just fine. However, we are still trying to ascertain how
+best to speed up getting a fix from a cold start.
+ 
 
 ## COPYRIGHT
 
