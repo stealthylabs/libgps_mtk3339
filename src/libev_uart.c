@@ -112,12 +112,21 @@ int main(int argc, char **argv)
     // use the default event loop
     struct ev_loop *loop = EV_DEFAULT;
     const char *dev = "/dev/ttyUSB0";
+    const char *dev2 = "/dev/serial0";
+    bool use_arg_dev = false;
     if (argc > 1) {
         dev = argv[1];
+        use_arg_dev = true;
     }
     GPSUTILS_INFO("Using %s as device\n", dev);
     int rc = 0;
     int dev_fd = gpsdevice_open(dev, true);
+    /* if the user did not supply a device, let's try the other device path
+     */
+    if (dev_fd < 0 && !use_arg_dev) {
+        GPSUTILS_INFO("%s failed, so trying %s\n", dev, dev2);
+        dev_fd = gpsdevice_open(dev2, true);
+    }
     if (dev_fd < 0) {
         rc = -1;
     } else {
